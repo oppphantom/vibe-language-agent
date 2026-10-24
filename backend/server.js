@@ -5,11 +5,12 @@ const path=require('node:path');
 const {begin,get,node,answer}=require('./agent/session');
 const model=require('./agent/model');
 const {findLyrics}=require('./media/lyrics');
+const libraryIndex=require('./media/library-index');
 const {songs,lines}=require('../content/fixtures/demo');
 const {validateLine}=require('../shared/contract');
 const mac=process.platform==='darwin'?require('./media/mac-music'):null;
 const root=path.join(__dirname,'..');
-const assets={'/':'frontend/index.html','/app.js':'frontend/app.js','/style.css':'frontend/style.css'};
+const assets={'/':'frontend/index.html','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/style.css':'frontend/style.css'};
 const mime={'html':'text/html; charset=utf-8','js':'text/javascript; charset=utf-8','css':'text/css; charset=utf-8'};
 function send(res,status,data,type='application/json; charset=utf-8'){
   res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
@@ -55,6 +56,16 @@ function createServer(){return http.createServer(async(req,res)=>{
     if(req.method==='GET'&&url.pathname==='/api/mac/status'){
       if(!mac)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
       return send(res,200,await mac.status());
+    }
+    if(req.method==='GET'&&url.pathname==='/api/mac/library'){
+      if(!mac)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
+      const artist=url.searchParams.get('artist')||'';
+      return send(res,200,{artist,songs:await libraryIndex.library(artist,{macBridge:mac})});
+    }
+    if(req.method==='POST'&&url.pathname==='/api/mac/discover'){
+      if(!mac)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
+      const input=await read(req),data=await libraryIndex.index(input.artist,{macBridge:mac});
+      return send(res,200,libraryIndex.findHits(data,input.expression));
     }
     if(req.method==='POST'&&url.pathname==='/api/mac/play-line'){
       if(!mac)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});

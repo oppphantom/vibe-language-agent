@@ -26,4 +26,6 @@ Then `GET /api/sessions/{id}/node`, `POST /api/answers` with `{"sessionId":"..."
 
 `POST /api/lyrics/search` accepts `{"title":"...","artist":"...","durationMs":180000}`. Results are `unverified` or `no_matched_version`; this endpoint does not return a song if version matching fails. `POST /api/agent/explain` accepts `{"expression":"다시","lines":["..."]}` only when the server model is configured. Its output is explicitly `AI 生成，未人工核对`.
 
+Mac Music: `GET /api/mac/status` checks the current player; `GET /api/mac/library?artist=RIIZE` lists matching local-library metadata; `POST /api/mac/play-line` accepts `{"title":"Memories","artist":"RIIZE","startMs":5000,"endMs":8000}` and reports whether the bridge verified the seek and scheduled pause. `POST /api/mac/discover` accepts `{"artist":"RIIZE","expression":"다시"}` and returns source-matched hits with neighboring lines and the indexing coverage. The Discover endpoint performs text matching, not word-form or meaning verification. These routes are available only on macOS and the server remains bound to loopback.
+
 Errors use `{"error":{"code":"INVALID_INPUT","message":"..."}}` with appropriate HTTP status. Upstream source errors and model errors remain explicit. Tool logs contain names, statuses, and sanitized summaries, never hidden model reasoning.
