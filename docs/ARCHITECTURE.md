@@ -1,11 +1,26 @@
-# Architecture
+# 架构与信任边界
 
-The dependency-free Node HTTP server binds only to `127.0.0.1`. It serves a static UI and a small JSON API. The browser stores only the session ID; lesson progress and correct answers live in the server process. This keeps the answer key out of learner-visible option payloads but means a server restart loses progress. Durable, private persistence is a later task.
+项目是一个不依赖第三方运行包的 Node.js 本机 HTTP 服务，绑定 `127.0.0.1`，同时提供静态网页和 JSON API。浏览器只保存不透明的会话 ID；离线教学的进度、标准答案和评分逻辑保存在服务进程中。网页刷新可恢复进度，但服务重启后会话失效；持久化仍待实现。
 
-`frontend/` handles presentation and user-selected local audio through an object URL. `backend/agent/session.js` runs a fixed offline teaching state machine. `backend/agent/model.js` optionally calls a configured, trusted Chat Completions endpoint; output is checked for shape but not semantically verified. `backend/media/lyrics.js` matches LRCLIB metadata and parses synchronized lines. `backend/media/library-index.js` reads local Music song metadata and builds a temporary in-memory lyric index for Discover. `backend/media/mac-music.js` is a migrated AppleScript adapter loaded only on macOS, with numeric time and fixed operations. `shared/contract.js` validates key cross-boundary objects. `content/fixtures/demo.js` is original, reviewable teaching data.
+## 模块
 
-Data flow: choose fixture song → create session → get lesson node → submit answer → server grades and updates progress → get session after reload. In Mac Music mode: read local library metadata → match lyrics by title, artist, and duration → click line → Music switches track and seeks → local bridge checks position and pauses near line end. Discover builds an in-memory index for the selected artist and returns text hits with neighboring lines; character matching alone is not a semantic judgment. In local audio mode: user supplies metadata → server queries LRCLIB → browser receives unverified timed lines → user supplies local audio → browser seeks and pauses. The audio never reaches the server.
+- `frontend/`：页面、资料库交互、Discover、浏览器本地音频播放。
+- `backend/agent/session.js`：固定离线教学流程、评分、答错补教与幂等提交。
+- `backend/agent/model.js`：可选模型解释；只检查返回结构，无法凭结构校验证明语义正确。
+- `backend/media/lyrics.js`：按歌名、歌手和时长匹配 LRCLIB 歌词，解析句级时间戳。
+- `backend/media/library-index.js`：读取本机音乐曲目元信息，在内存中临时建立歌词检索索引；不写入可提交缓存。
+- `backend/media/mac-music.js`：只在 macOS 加载的 AppleScript 适配器，提供固定的资料库与播放操作。
+- `shared/contract.js`：关键跨端对象的运行时校验。
+- `content/fixtures/demo.js`：原创、可审查的固定教学样例。
 
-Local trust boundary: browser POST requests with an Origin header must come from the exact loopback server origin; the server accepts no arbitrary script. It is not a public deployment target. Configured model endpoint and credentials come from server environment, and the endpoint must be HTTPS with no embedded credentials. The configured endpoint is trusted by the operator. There is no anonymous arbitrary-URL relay.
+## 三条数据流
 
-Known limitations: no durable state, no reviewed semantic analysis in the new Discover, no AI-driven route selection for real songs, no word-level timing, and no rights-cleared commercial media. The local Mac Music check confirms one short sample but not arbitrary song versions or consistent timing. The original prototype remains available separately for its not-yet-migrated learning features.
+1. **离线演示：**选原创样例歌 → 创建会话 → 获取教学节点 → 提交答案 → 服务端评分并更新进度 → 刷新后用会话 ID 取回进度。
+2. **Mac「音乐」：**读取当前电脑的歌曲元信息 → 用歌名、歌手和时长寻找同步歌词 → 点击歌词行 → 桥接切歌、定位并核对实际播放位置 → 接近句末时暂停。Discover 临时索引同一歌手的多首歌，返回连续字符命中及上下句；文字命中不是词义结论。
+3. **本地音频：**用户填写歌曲信息 → 服务端检索 LRCLIB → 浏览器显示未核对的时间歌词 → 用户选择自己的音频文件 → 浏览器本地定位、循环或暂停。音频文件不会发给服务端。
+
+## 安全与限制
+
+服务只在本机回环地址提供。浏览器带 `Origin` 的 POST 请求必须来自该服务自身页面。Mac 桥接不接受任意脚本输入。模型密钥和接口地址来自服务端环境变量；配置者应只使用自己信任的 HTTPS 接口，不向匿名请求提供任意 URL 转发能力。
+
+当前仍缺少：服务重启后的持久学习状态、Discover 中经核对的语义判断、针对真实歌曲的完整 Agent 课程规划、逐词原声时间戳，以及可在仓库中分发的商业歌曲媒体。一次 Mac 本机实测确认了短片段定位与暂停，但不保证所有歌曲版本和网络条件都稳定。旧原型仍单独存在，用于对照尚未迁入的教学功能。

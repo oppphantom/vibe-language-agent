@@ -1,7 +1,7 @@
-# Third-party and content status
+# 第三方组件与素材状态
 
-The starter has no third-party package dependencies. Its media integration calls LRCLIB at runtime only when the user requests it; no full lyric cache is committed. External service availability and rights to redistribute retrieved lyrics are separate questions. This repository does not redistribute commercial songs, recordings, or full lyrics.
+本项目当前没有第三方 npm 包依赖。用户主动检索时，服务会实时访问 LRCLIB；仓库不保存或分发其完整歌词缓存。能访问外部歌词不等于有权重新分发。
 
-`backend/media/mac-music.js` was copied from the user's local prototype. The previous prototype did not contain a declared project license. No MIT or other open-source license is asserted here. The repository remains private, and a license decision should be made by the project owner before broader distribution.
+`backend/media/mac-music.js` 从项目发起人的本地原型迁入。旧原型没有声明整体开源许可证，因此本仓库**没有**擅自附加 MIT 等许可证。仓库保持私有；如果将来要公开发布，应由项目所有者先确认代码与素材授权状态。
 
-`content/fixtures/demo.js` contains newly written, fictional Korean teaching sentences and fictional song titles. They are labeled as original demo content.
+`content/fixtures/demo.js` 使用新写的虚构韩语教学句子和虚构歌曲名称，并明确标注为原创教学样例。仓库不包含商业歌曲录音、视频或完整歌词。

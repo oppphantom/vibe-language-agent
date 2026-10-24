@@ -1,14 +1,98 @@
-# Contributing
+# 贡献指南：从下载仓库到合并改动
 
-The team works in short branches and pull requests: `feat/...`, `fix/...`, and `content/...`. Run `npm ci`, `npm run check`, and `npm run smoke` before requesting review. Include the material provenance and actual validation in each PR. No long-lived personal branches are required.
+这份指南面向首次参与项目的四位成员。开始前先读 [README](README.md)，明确「离线演示」「真实连接」和仍未实现的能力。遇到不确定的歌词来源或语义解释，先保留原始证据并标注不确定性。
 
-The current private repository account does not support the GitHub branch-protection API (HTTP 403 requiring GitHub Pro or public visibility). Until that changes, the team convention is to merge to `main` only through a PR after the `Offline checks` workflow passes. Do not make the repository public merely to turn on protection.
+## 1. 准备本地环境
 
-Initial responsibilities:
+1. 安装 Node.js 20 或更新版本，运行 `node -v` 与 `npm -v` 确认命令可用。
+2. 从私有 GitHub 仓库克隆项目。尚未获仓库访问权限的成员需请仓库所有者在 GitHub 中添加；不要共享个人令牌。
+3. 在仓库根目录运行 `npm ci`，然后运行 `npm run check` 和 `npm run smoke`。两项都通过后，再用 `npm start` 启动网页。
+4. 打开 `http://127.0.0.1:8767/`，先走一遍不依赖个人资料库的离线教学演示。
 
-- **A · Frontend:** page interaction, later map and card presentation. First task: make the offline lesson's context comparison easier to read on mobile; acceptance: answer and retry still work after refresh.
-- **B · Agent/API:** session state, grading, model adapter. First task: persist non-sensitive learning sessions across server restarts; acceptance: idempotent submissions and schema migration tests pass.
-- **C · Media:** lyric matching, local audio, Mac Music adapter. First task: test the migrated Mac Music bridge on a permitted local track and document measured seek/pause behavior; acceptance: no false playback success, platform absence graceful.
-- **D · Learning content:** objectives, source review, grading criteria, learner testing. First task: create one original Korean context pair with a documented answer rationale; acceptance: another learner can explain the target expression after incorrect-answer remediation.
+```sh
+git clone https://github.com/oppphantom/vibe-language-agent.git
+cd vibe-language-agent
+npm ci
+npm run check
+npm run smoke
+npm start
+```
 
-The schema in `shared/contract.js` and API examples in `docs/API_CONTRACT.md` are shared. Coordinate changes to either before merging; file ownership does not block needed collaboration. Do not add personal library exports, full commercial lyrics, recordings, secrets, or unlicensed third-party code. Do not treat a model explanation as a verified source. Unknown GitHub usernames are intentionally absent from CODEOWNERS.
+当前私有仓库账户无法启用 GitHub 的强制分支保护接口（HTTP 403，提示需 GitHub Pro 或公开仓库）。**团队约定**是只通过 Pull Request 合并 `main`，并在合并前确认 `Offline checks` 工作流通过；不要为开启保护而把仓库改为公开。
+
+## 2. 了解目录与职责
+
+| 位置 | 内容 | 主要负责人 |
+| --- | --- | --- |
+| `frontend/` | 页面、播放交互、语境展示 | A：前端、地图与关卡交互 |
+| `backend/agent/` | 教学回合、反馈、模型接口 | B：Agent、服务端 API 与学习状态 |
+| `backend/media/` | 歌词来源、版本匹配、Mac「音乐」桥接 | C：歌词、音频与播放器适配 |
+| `content/fixtures/`、`docs/` | 原创样例、教学目标、来源及评测说明 | D：教学内容与用户评测 |
+| `shared/contract.js` | 跨前后端的运行时数据契约 | 四人协作修改 |
+
+这是协作分工，不是文件权限边界。跨目录改动很正常；若改变 `shared/contract.js`、API 字段、依赖或启动命令，先在任务或 PR 中告知受影响成员，并同时更新文档和相应测试。不要维护多份彼此矛盾的手写契约。
+
+## 3. 领取任务与创建分支
+
+从 [路线图](docs/ROADMAP.md)认领一个可验收的小任务。先写清楚用户问题、改动范围、验收方式、真实材料来源和可能影响的接口。避免一次 PR 同时重写播放器、教学状态和视觉设计。
+
+每次开始工作先更新本地 `main`，再创建短期任务分支：
+
+```sh
+git switch main
+git pull --ff-only
+git switch -c feat/short-task-name
+```
+
+修复缺陷用 `fix/...`，教学内容用 `content/...`。分支名用小写英文和连字符即可；不创建四个长期个人分支。已有未提交改动时先检查 `git status`，不要用强制重置清掉自己的工作。
+
+## 4. 开发时必须守住的边界
+
+**真实与演示分开。** `content/fixtures/demo.js` 是原创、固定的教学样例。不要把预设答案称为实时 Agent 生成；模型输出要标明「未人工核对」。Discover 目前只做连续字符检索，不代表识别了韩语词形，更不代表词义在不同歌曲里发生变化。
+
+**歌词与音频。** 外部歌词要记录来源、版本/时长和核对状态；来源可访问并不等于允许重新分发。不要提交商业歌曲完整歌词、音频、视频、个人音乐资料库导出或批量缓存。测试播放可以使用自己制作或授权明确的短素材，或只测试时间数据与桥接状态。
+
+**密钥与隐私。** 模型密钥只由本机服务从环境变量读取。不要提交 `.env`、令牌、Cookie、用户学习记录、个人截图或日志；不要把密钥放进浏览器代码、URL、错误信息或 PR 描述。发现泄漏时先停止传播并通知持有人轮换相关凭据。
+
+**本机桥接。** 服务保持绑定 `127.0.0.1`；Mac「音乐」接口只接受预定义动作并校验参数。不得让浏览器提交任意 shell/AppleScript 代码，也不得把本机音乐控制服务公开部署。Windows/Linux 缺少 Music 时，网页其他功能仍须可用。
+
+## 5. 修改接口或教学内容
+
+接口改动按这个顺序：先更新 `shared/contract.js` 的可执行校验与相关单元测试，再更新后端返回、前端使用方式，以及 [接口契约](docs/API_CONTRACT.md)。时间单位统一为毫秒；未知时间用 `null`；没有逐词时间戳时不显示可用的逐词原声播放。标准答案与评分依据留在服务端。
+
+教学内容 PR 至少说明：学习目标、目标表达的基础义、每条证据的来源和核对状态、干扰项为何合理、答错后如何补教，以及哪些文化或情绪推断仍无法从歌词证实。引用真实歌曲时尽量保留来源链接和必要的最小片段；不能确认提交权限的材料留在本机，通过可复现获取步骤说明，不放进仓库。
+
+## 6. 提交前检查
+
+```sh
+npm run check
+npm run smoke
+git status --short
+git diff --check
+git diff
+```
+
+测试应覆盖改动带来的真实风险。例如改动歌词匹配，要检查时间戳和版本错误；改动 Agent，要检查答错、重试、重复提交和进度；改动桥接，要检查平台缺失与播放失败。不要只写与实现逐行重复的测试。真实 LRCLIB、音乐软件或模型连接无法在 CI 中验证时，在 PR 中写明本机验证设备、条件与结果，不能把未验证写成通过。
+
+暂存时明确列出所需文件，检查 `git diff --cached --stat` 与 `git diff --cached --check`。不要盲目 `git add .`；确认没有 `.env`、个人数据、音频、缓存或无法授权分发的歌词。下面以只修改 README 为例；实际工作请把文件名换成本次确实改动的文件：
+
+```sh
+git add README.md
+git diff --cached --stat
+git diff --cached --check
+git commit -m "简短描述本次改动"
+git push -u origin HEAD
+```
+
+## 7. 提交 Pull Request 与合并
+
+在 GitHub 上从任务分支向 `main` 创建 PR，填写仓库提供的中文模板。描述应包含：改了什么、为什么改、实际执行了哪些检查、真实材料与许可状态、未验证的能力、页面截图或短操作说明。涉及共享契约时请 A/B/C/D 中受影响的人看一遍；涉及教学结论请 D 核对。等 `Offline checks` 成功并处理审阅意见后再合并。合并后更新本地 `main`，删除已完成的短期分支。
+
+仓库目前不自动邀请成员，也没有捏造 `CODEOWNERS` 用户名。需要访问权限时由仓库所有者确认 GitHub 账户后添加。
+
+## 8. 四人的第一项可认领任务
+
+- **A：** 改善手机上两段语境对照的阅读与播放状态；验收是答题、重试和刷新仍可用，缺少能力的控件明确禁用。
+- **B：** 让非敏感学习会话在服务重启后恢复；验收是重复提交仍幂等，旧版会话有迁移测试，答案仍留在服务端。
+- **C：** 用一首有使用权的歌曲系统测量 Mac「音乐」的定位与暂停时延；验收是记录成功/失败条件，其他平台的离线 CI 继续通过。
+- **D：** 设计并核对一组原创韩语跨语境样例；验收是标出教学目标、正确答案依据、干扰项与答错后的补教提示，并做一次学习者试用。

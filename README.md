@@ -1,38 +1,65 @@
-# VIBE RECORDS · Language Agent starter
+# VIBE RECORDS：歌曲语境学习 Agent
 
-This is a local, song-centered language-learning agent foundation. The initial offline lesson teaches Korean `다시` with **original fictional teaching text**, not commercial lyrics or live AI output. It exists separately from the earlier RIIZE prototype.
+这是一个以歌曲为入口的韩语学习项目，目前优先验证「听原声—读歌词—比较语境—获得学习反馈」的流程。项目从本机 RIIZE 原型中提取能力，但与旧原型分开运行。**仓库不包含任何成员的音乐资料库、商业歌曲音频、完整歌词缓存或 API Key。**
 
-## Requirements and start
+## 成员下载后能看到什么
 
-- Node.js 20 or newer (developed and checked with Node.js 24.11.1)
-- No package dependencies, API key, Mac Music app, or personal library for the offline flow
+每位成员克隆仓库并启动服务后，都能在自己的电脑上打开与 `http://127.0.0.1:8767/` 同一套网页界面。无需音乐软件或密钥，就能体验「离线教学演示」：选择原创样例、答题、答错后补教、重试和查看进度。
+
+「我的音乐资料库」会读取**该成员自己电脑**上的 Mac「音乐」资料库，因此歌曲列表可能与项目发起人的 RIIZE 列表不同。该功能仅在 macOS 上提供；还要有可播放的歌曲、允许本机控制「音乐」，并能连接 LRCLIB 取得匹配版本的同步歌词。「本地音频与歌词」则由成员自行选择本地音频文件，文件不会上传到项目服务端。真实模型解释需要各人在本机配置可用的模型接口与密钥。详情见下文的能力表。
+
+## 安装和启动
+
+需要 Node.js **20 或更高版本**。开发和检查使用过 Node.js 24.11.1。项目没有第三方 npm 运行依赖。
 
 ```sh
+git clone https://github.com/oppphantom/vibe-language-agent.git
+cd vibe-language-agent
 npm ci
 npm start
 ```
 
-Open `http://127.0.0.1:8767/`. If port 8767 is taken, run `PORT=8768 npm start` and open the matching URL.
+在浏览器打开 `http://127.0.0.1:8767/`。如果 8767 已被占用，可以运行 `PORT=8768 npm start`，再打开相应地址。服务仅绑定本机 `127.0.0.1`；它不是公网部署。
 
-Run `npm run check` for syntax and risk-focused tests; run `npm run smoke` for the HTTP flow.
+本地检查：
 
-## Modes and actual boundaries
+```sh
+npm run check
+npm run smoke
+```
 
-**Offline demonstration:** choose an original demo song, inspect material, answer a context question, receive distinct correct/incorrect feedback, see a remedial action, and retry. A session lives in server memory; the browser stores only its opaque session ID. Refreshing the page restores it while the server remains running. Restarting the server expires it. There is no audio asset, so no playback is claimed.
+`check` 检查 JavaScript 语法并运行重点测试；`smoke` 会在临时本机端口走通「选歌—答错—补教—答对—进度保存」的 HTTP 流程。
 
-**My Music library:** the first tab now connects to the local Mac Music app, lists tracks for a chosen artist, obtains version-matched synced lyrics, and plays a clicked line in Music with automatic pause. Discover searches matching text across indexed songs from that artist, shows neighboring lines, and plays each hit without leaving the page. In a local check, 18 RIIZE library tracks were listed, 14 had matched lyrics, and `다시` occurred in four songs; one 5–8 second Memories segment played and paused at 8.06 seconds. This is a device-specific observation, not a general latency or accuracy guarantee. A missing lyric source or unmatched version remains unavailable rather than being silently replaced.
+## 三个页面入口
 
-**Local audio experiment:** search LRCLIB by title, artist, and track duration; the returned lyrics and line timestamps are marked unverified. Select your own local audio file in the browser and click a timed lyric line to hear it; pause and loop use the browser audio element. Audio is not uploaded. The song version and offset must be checked manually. Last lines without an end time cannot be played as a bounded segment.
+| 入口 | 已实现 | 所需条件与限制 |
+| --- | --- | --- |
+| 我的音乐资料库 | 读取本机 Mac「音乐」曲目、检索版本匹配的同步歌词、点击一句播放并在句末暂停、Discover 跨歌曲文字检索与原声播放 | 仅 macOS；需要自己的资料库和可用的 LRCLIB。歌词未经人工核对，Discover 的连续字符命中不等于词义判断。 |
+| 离线教学演示 | 原创韩语样例、选择题、答错补教、重试、页面刷新后恢复当前进度 | 不需要密钥、音乐软件或联网；样例没有音源，不能播放。服务重启后内存中的会话会失效。 |
+| 本地音频与歌词 | 按歌名、歌手和时长检索 LRCLIB；选择自己的音频文件逐句播放、循环与变速 | 用户自行核对歌词版本和偏移；音频留在浏览器，不上传。没有句末时间的歌词行不能做有边界的播放。 |
 
-Optional model explanation reads `VIBE_MODEL_API_KEY`, `VIBE_MODEL_NAME`, and `VIBE_MODEL_ENDPOINT` from the server environment. It supports a Chat Completions JSON-mode endpoint and returns explicitly unreviewed explanation. It does **not** create a full adaptive lesson, grade live lyrics, or prove the model's interpretation is right. Keep the key on the server. `.env.example` is a template; export environment variables before `npm start` or use a local environment loader of your choice. The original feature-rich prototype is linked from the new Music tab while its remaining learning features are migrated.
+在本机一次验证中，Mac「音乐」列出了 18 首 RIIZE 歌曲，其中 14 首匹配到同步歌词；Discover 在 4 首歌中找到了「다시」的 5 处文字命中。《Memories》一个 5–8 秒片段在约 8.06 秒暂停。这只是**该电脑上的一次实测**，不保证所有成员的歌曲、网络和播放时延相同。
 
-## Common failures
+## 可选的模型接口
 
-- **No synced lyrics:** the source has no matching version or the duration differs by more than 8 seconds. Verify title, artist and duration.
-- **Source request fails:** external lyrics access is unavailable. The offline sample still works.
-- **No audio:** pick a local file you may use; the app never supplies commercial recordings.
-- **Model unavailable:** set all three model environment variables, or continue offline.
-- **Session missing:** the server restarted; select a sample song again.
-- **Mac Music unavailable:** this optional adapter only runs on macOS; the main web app works elsewhere.
+模型解释由服务端读取环境变量，不在网页中输入或保存密钥。支持兼容 Chat Completions JSON 模式的受信 HTTPS 接口；`.env.example` 只是配置模板，项目**不会自动加载 `.env`**。可以在本机终端先设置环境变量，再运行 `npm start`。请勿把真实密钥提交到 Git。
 
-See [architecture](docs/ARCHITECTURE.md), [contract](docs/API_CONTRACT.md), [migration audit](docs/MIGRATION_AUDIT.md), and [roadmap](docs/ROADMAP.md).
+```sh
+export VIBE_MODEL_ENDPOINT='https://api.openai.com/v1/chat/completions'
+export VIBE_MODEL_NAME='你的可用模型名'
+export VIBE_MODEL_API_KEY='你的密钥'
+npm start
+```
+
+模型输出会标明「AI 生成，未人工核对」。目前它只能解释输入的表达与歌词材料，**尚未**根据真实歌曲自动生成完整课程、可靠评判语义差异或自适应规划学习路线。若接口缺失或调用失败，离线教学演示仍可使用。
+
+## 常见问题
+
+- **其他成员看到的歌曲与我的不同？** 正常。网页读取的是运行服务的那台 Mac 的「音乐」资料库；仓库不包含你的资料库。
+- **Windows/Linux 看不到 Mac「音乐」？** 此平台桥接不可用；离线演示和本地音频模式仍可启动。
+- **检索不到歌词？** 可能 LRCLIB 没有该歌曲、网络不可用，或歌词版本与资料库歌曲时长相差超过 8 秒。检查歌名、歌手和时长。
+- **点歌词不能播放？** 检查歌曲能否在 Mac「音乐」中播放、系统是否允许终端控制音乐，以及歌词时间偏移。网页会显示明确错误；不会假装播放成功。
+- **刷新后进度仍在，重启后没了？** 浏览器只存会话 ID，进度暂存在 Node 进程内存；持久化属于后续任务。
+- **旧原型的其他功能去哪了？** 新项目尚未迁完真实歌词的韩中讲解、选择题与自适应教学。旧原型入口仍是 `http://127.0.0.1:8766/vibe.html`，但它只在项目发起人的电脑上运行，不随此仓库提供。
+
+协作步骤见 [贡献指南](CONTRIBUTING.md)。实现边界见 [架构](docs/ARCHITECTURE.md)、[接口契约](docs/API_CONTRACT.md)、[迁移审查](docs/MIGRATION_AUDIT.md)和[路线图](docs/ROADMAP.md)。

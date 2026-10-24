@@ -1,10 +1,10 @@
-# Next independently claimable tasks
+# 下一批可独立认领的任务
 
-| Owner | Task | Acceptance |
+| 负责人 | 任务 | 验收条件 |
 | --- | --- | --- |
-| A · Frontend | Improve mobile comparison of two contexts, show precise source and audio capability state | Answer, retry and reload work on narrow viewport; unsupported controls stay disabled |
-| B · Agent/API | Add private durable sessions with schema migration | Progress survives process restart; duplicate submission remains idempotent; no answer key in client payload |
-| C · Media | Validate Mac Music bridge with one permitted local track and measure seek/pause lag | Report actual version, latency and failures; no false success; Linux CI still passes |
-| D · Content | Review one new original Korean context pair with pedagogy rubric | Source, target, distractor rationale and wrong-answer hint documented; test learner can explain target after retry |
+| A（前端） | 改善手机上两段歌曲语境的对照阅读与播放状态 | 窄屏可完成听句、答题、重试；刷新后状态一致；不支持的操作明确禁用。 |
+| B（Agent/API） | 为非敏感学习会话加入持久化和 schema 迁移 | 服务重启后仍能恢复进度；重复提交保持幂等；标准答案不进入浏览器节点数据。 |
+| C（媒体） | 系统验证 Mac「音乐」桥接的切歌、定位与暂停时延 | 记录真实成功和失败条件；不得把未播放显示为成功；Windows/Linux 离线检查继续通过。 |
+| D（教学内容） | 设计并核对下一组原创韩语跨语境样例 | 有来源、学习目标、选项依据、补教提示与一次真实学习者试用记录。 |
 
-After these, add verified word-form matching, cross-song semantic evidence review, and then an adaptive route selector. The in-memory lyric index currently only supports character matching. This starter does not yet implement map, voice scoring, multiple agents, or film/variety retrieval.
+随后优先做词形核对、跨歌曲语义证据审查，再决定如何让 Agent 自适应选择下一步。目前歌词索引只能做连续字符检索。地图、语音评分、多 Agent、影视或综艺检索都不属于这版已实现能力。

@@ -1,9 +1,18 @@
-## What changed
+## 本次改动
 
-## Evidence and source status
+请说明用户遇到的问题、改动范围，以及为什么这样处理。
 
-## Checks
+## 材料与来源
 
-- [ ] `npm run check`
-- [ ] `npm run smoke`
-- [ ] No credentials, commercial media, full lyric cache, or personal data added
+列出歌词、音频、教学解释或其他素材的来源和核对状态；说明是否有权提交。若没有使用外部素材，写「无」。
+
+## 验证结果
+
+- [ ] `npm run check` 通过
+- [ ] `npm run smoke` 通过
+- [ ] 已手动检查相关页面或本机桥接行为，并说明测试条件
+- [ ] 未提交密钥、商业媒体、完整歌词缓存、个人资料库或个人学习记录
+
+## 仍未验证的部分
+
+请写明外部歌词、Mac「音乐」、模型接口或其他依赖真实环境的能力中，哪些没有测到，以及原因。
