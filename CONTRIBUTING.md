@@ -2,6 +2,8 @@
 
 The team works in short branches and pull requests: `feat/...`, `fix/...`, and `content/...`. Run `npm ci`, `npm run check`, and `npm run smoke` before requesting review. Include the material provenance and actual validation in each PR. No long-lived personal branches are required.
 
+The current private repository account does not support the GitHub branch-protection API (HTTP 403 requiring GitHub Pro or public visibility). Until that changes, the team convention is to merge to `main` only through a PR after the `Offline checks` workflow passes. Do not make the repository public merely to turn on protection.
+
 Initial responsibilities:
 
 - **A · Frontend:** page interaction, later map and card presentation. First task: make the offline lesson's context comparison easier to read on mobile; acceptance: answer and retry still work after refresh.
