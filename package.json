@@ -1,0 +1,12 @@
+{
+  "name": "vibe-language-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first language learning agent foundation",
+  "engines": {"node": ">=20"},
+  "scripts": {
+    "start": "node backend/server.js",
+    "check": "node --check backend/server.js && node --check frontend/app.js && node --test",
+    "smoke": "node scripts/smoke.js"
+  }
+}
