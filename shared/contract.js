@@ -11,7 +11,7 @@ function validateLine(line) {
   if (startMs !== null && (!Number.isInteger(startMs) || startMs < 0)) fail('开始时间无效');
   if (endMs !== null && (!Number.isInteger(endMs) || endMs <= startMs)) fail('结束时间无效');
   if (startMs === null && endMs !== null) fail('没有开始时间时不能有结束时间');
-  if (!['original_demo','lrclib','manual_review'].includes(line.source?.kind)) fail('来源无效');
+  if (!['original_demo','lrclib','netease','qqmusic','manual_review'].includes(line.source?.kind)) fail('来源无效');
   if (!['verified','unverified','original'].includes(line.reviewStatus)) fail('核对状态无效');
   return {id,songId,text,startMs,endMs,source:line.source,reviewStatus:line.reviewStatus};
 }

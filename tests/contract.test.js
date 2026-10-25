@@ -24,6 +24,12 @@ test('version mismatch does not expose a wrong lyric',async()=>{
 test('source failure is visible',async()=>{
   await assert.rejects(()=>findLyrics('Song','Artist',120000,async()=>{throw Error('offline')}),/offline/);
 });
+test('temporary lyric upstream failure is retried once',async()=>{
+  let attempts=0;
+  const fake=async()=>++attempts===1?{ok:false,status:503}:{ok:true,json:async()=>[{id:4,trackName:'Song',artistName:'Artist',duration:120,syncedLyrics:'[00:01.00]text'}]};
+  const result=await findLyrics('Song','Artist',120000,fake);
+  assert.equal(attempts,2);assert.equal(result.lines.length,1);
+});
 test('wrong answer causes remediation, duplicate is idempotent, correct answer completes',()=>{
   const s=session.begin('demo-morning');
   const wrong={sessionId:s.id,nodeId:'demo-dasi',submissionId:'one',choice:1,attempt:1,hintUsed:false};

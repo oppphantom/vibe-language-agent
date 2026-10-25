@@ -10,6 +10,10 @@
 - `backend/media/lyrics.js`：按歌名、歌手和时长匹配 LRCLIB 歌词，解析句级时间戳。
 - `backend/media/library-index.js`：读取本机音乐曲目元信息，在内存中临时建立歌词检索索引；不写入可提交缓存。
 - `backend/media/mac-music.js`：只在 macOS 加载的 AppleScript 适配器，提供固定的资料库与播放操作。
+- `backend/media/system-player.js`：通过 `nowplaying-cli` 读取系统媒体状态并控制当前 QQ 音乐或网易云音乐歌曲；调用前后核对来源与曲目。
+- `backend/media/netease-library.js`：只读网易云 Mac 客户端本地歌曲列表缓存，向网页投影最少的歌曲元数据；不复制客户端数据库或账号信息。
+- `backend/media/qq-library.js`：只读 QQ 音乐 Mac 客户端的歌曲缓存数据库，只返回学习列表所需元数据；不返回文件路径或账号信息。
+- `backend/media/qq-lyrics.js`：按本机歌曲 MID 从 QQ 音乐公开接口获取同步 LRC，核对歌名、歌手和时长，失败时尝试 LRCLIB；标明来源和未人工核对状态。
 - `shared/contract.js`：关键跨端对象的运行时校验。
 - `content/fixtures/demo.js`：原创、可审查的固定教学样例。
 
