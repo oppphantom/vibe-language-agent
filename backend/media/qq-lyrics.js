@@ -15,8 +15,10 @@ async function findQqLyrics(input,{fetchImpl=fetch,libraryImpl=library,fallback=
   const {title,artist,durationMs}=input;
   if(typeof title!=='string'||!title.trim()||title.length>150||typeof artist!=='string'||!artist.trim()||artist.length>150||
     !Number.isInteger(durationMs)||durationMs<1000||durationMs>3600000)throw Error('歌曲信息无效');
-  let songs;
-  try{songs=await libraryImpl()}catch{return fallback(title,artist,durationMs,fetchImpl)}
+  let songs=[];
+  const selectedMid=/^[A-Za-z0-9]{14}$/.test(String(input.songmid||''))?String(input.songmid):null;
+  if(selectedMid)songs=[{id:String(input.providerId||''),songmid:selectedMid,title,artist,album:String(input.album||''),durationMs}];
+  else try{songs=await libraryImpl()}catch{return fallback(title,artist,durationMs,fetchImpl)}
   const candidate=songs.find(song=>(!input.providerId||song.id===String(input.providerId))&&clean(song.title)===clean(title)&&
     (artistKey(song.artist)===artistKey(artist)||artistKey(song.artist).includes(artistKey(artist))||artistKey(artist).includes(artistKey(song.artist)))&&
     Math.abs(song.durationMs-durationMs)<3000&&(!input.album||clean(song.album)===clean(input.album)));

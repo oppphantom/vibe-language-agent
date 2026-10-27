@@ -34,7 +34,7 @@ Content-Type: application/json
 
 ## 歌词与模型
 
-- `POST /api/lyrics/search` 接收 `{"title":"...","artist":"...","durationMs":180000}`；可带 `album`、`providerId` 缩小到对应版本，只返回标题、歌手、时长及已提供专辑匹配的同步歌词。`provider:"netease"` 时优先读取网易云对应歌曲 ID 的同步歌词；`provider:"qqmusic"` 时先根据本机 QQ 曲目 ID 查歌曲 MID，从 QQ 歌词接口读取逐行时间戳，失败才尝试 LRCLIB。`providerId` 指定用户在列表选中的版本。其他来源从 LRCLIB 匹配。结果为 `unverified` 或 `no_matched_version`，找不到匹配版本时不提供冒充的歌词。
+- `POST /api/lyrics/search` 接收 `{"title":"...","artist":"...","durationMs":180000}`；可带 `album`、`providerId` 缩小到对应版本，只返回标题、歌手、时长及已提供专辑匹配的同步歌词。`provider:"netease"` 时优先读取网易云对应歌曲 ID 的同步歌词；`provider:"qqmusic"` 时使用导入歌单携带的 song MID，或根据 macOS 本机 QQ 曲目 ID 查找歌曲 MID，再从 QQ 歌词接口读取逐行时间戳，失败才尝试 LRCLIB。`providerId` 指定用户在列表选中的版本。其他来源从 LRCLIB 匹配。结果为 `unverified` 或 `no_matched_version`，找不到匹配版本时不提供冒充的歌词。
 - `POST /api/agent/explain` 接收 `{"expression":"다시","lines":["..."]}`，仅在本机服务配置模型后可用；返回结果标记为「AI 生成，未人工核对」。
 
 ## Mac「音乐」本机桥接
@@ -52,10 +52,13 @@ Content-Type: application/json
 - `POST /api/player/play-line`：例如 `{"source":"netease","title":"Honestly","artist":"RIIZE","album":"Get A Guitar","durationMs":194000,"startMs":50000,"endMs":52000}`。仅控制当前歌曲；先核对播放来源、歌名、歌手，以及提供的专辑和时长，再暂停、定位、播放，并安排句末暂停。系统状态读取偶发失败时会有限次重试。
 - `POST /api/player/control`：`source` 为 `qqmusic` 或 `netease`，`action` 为 `play`、`pause` 或 `jump`；跳转时另传 `seconds`。可带 `album`、`durationMs` 核对同名歌曲的版本。只控制已核对的当前歌曲，跳转后继续播放。
 - `GET /api/netease/search?q=RIIZE%20Love%20119`：从网易云公开歌曲目录返回候选歌曲 ID、歌名、歌手和时长，供用户核对版本、预览歌词；搜索结果未人工核对。
-- `GET /api/netease/library`：仅在 macOS 从当前用户网易云客户端的本地 SQLite 缓存只读提取歌曲列表，仅返回歌曲 ID、歌名、歌手、专辑和时长。缓存可能不完整，不等于账号全部歌曲；不返回数据库原始 JSON、歌单 ID 或账号字段。
+- `GET /api/netease/library`：在 macOS 或 Windows 从当前用户网易云客户端的本地缓存只读提取歌曲列表，仅返回歌曲 ID、歌名、歌手、专辑和时长。缓存可能不完整，不等于账号全部歌曲；不返回数据库原始 JSON 或账号字段。
 - `GET /api/qq/library`：仅在 macOS 从当前用户 QQ 音乐客户端的 `qqmusic.sqlite` 只读提取已缓存的歌曲列表，仅返回歌曲 ID、歌名、歌手、专辑和时长。缓存可能不完整；不返回文件路径或账号字段。
+- `GET /api/qq/playlist?value=歌单链接或ID`：分页读取 QQ 音乐公开分享歌单，返回歌单名称和完整歌曲元数据。歌曲带数字 ID、song MID、歌单 ID 和顺序；不接收 Cookie，也不读取私密歌单。
+- `GET /api/netease/playlists`：仅在 Windows 只读读取当前用户的 `webdb.dat` 与 `playingList`，返回歌单名称和最少歌曲元数据。不会返回文件路径、数据库原始 JSON 或账号信息。
+- `POST /api/player/open-track`：仅在 Windows 接受 `{"source":"qqmusic|netease","song":{"id":"...","playlistId":"...","trackIndex":0}}`。QQ 使用数字歌曲 ID 调用客户端原生命令；网易云使用歌单 ID 与歌曲位置在本机页面中定位语义行并调用播放器。浏览器不能提交可执行脚本或任意命令行参数。
 
-此桥接需要 macOS 和 `nowplaying-cli`。状态中的播放进度由客户端向系统发布，可能滞后；实测 QQ 音乐暂停后仍长期上报旧进度与播放状态，因此 `positionReliable` 和 `playbackStateReliable` 都标为 `false`。句末暂停使用本机计时，因此存在少量偏差。它不读取 QQ 音乐或网易云音乐的完整资料库，也不能按歌名任意指定并切换歌曲。
+macOS 桥接需要 `nowplaying-cli`。Windows QQ 使用系统媒体会话和客户端原生命令；Windows 网易云需要用 `--remote-debugging-port=9222` 启动客户端，端口只绑定 `127.0.0.1`。状态中的播放进度可能滞后，因此 QQ 的 `positionReliable` 和 `playbackStateReliable` 仍为 `false`。Windows 可按经过校验的数字歌曲 ID 点播，但不会读取私密远端账号资料。
 
 `POST /api/player/queue-step` 接受 `source`、`direction`（`next` / `previous`）、当前歌曲的 `title` 与 `artist`，也可传 `album`、`durationMs` 核对当前版本。它仅切换客户端现有播放队列中的相邻歌曲；返回新歌曲元数据前，桥接会核对系统播放来源与歌曲信息确实变化。返回的歌曲保留系统上报的专辑名，供同步歌词版本匹配。同名同版本连续出现时无法可靠区分，会返回未确认错误。网页收到新曲目后重新检索同步歌词。
 

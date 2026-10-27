@@ -9,12 +9,14 @@ const {findNeteaseLyrics}=require('./media/netease-lyrics');
 const neteaseCatalog=require('./media/netease-catalog');
 const neteaseLibrary=require('./media/netease-library');
 const qqLibrary=require('./media/qq-library');
+const qqPlaylist=require('./media/qq-playlist');
 const {findQqLyrics}=require('./media/qq-lyrics');
 const libraryIndex=require('./media/library-index');
 const {songs,lines}=require('../content/fixtures/demo');
 const {validateLine}=require('../shared/contract');
 const mac=process.platform==='darwin'?require('./media/mac-music'):null;
-const systemPlayer=process.platform==='darwin'?require('./media/system-player').createBridge():null;
+const systemPlayer=process.platform==='darwin'?require('./media/system-player').createBridge():
+  process.platform==='win32'?require('./media/windows-player').createBridge():null;
 const root=path.join(__dirname,'..');
 const assets={'/':'frontend/index.html','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/style.css':'frontend/style.css'};
 const mime={'html':'text/html; charset=utf-8','js':'text/javascript; charset=utf-8','css':'text/css; charset=utf-8'};
@@ -30,7 +32,7 @@ function read(req){return new Promise((resolve,reject)=>{
 function capabilities(mode){
   if(mode==='local_audio')return {seek:true,lineLoop:true,speed:true,wordSeek:false,reason:{wordSeek:'缺少逐词时间戳'}};
   if(mode==='mac_music')return mac?{seek:true,lineLoop:false,speed:false,wordSeek:false,reason:{lineLoop:'Mac 音乐仅支持单次自动暂停',speed:'桥接未实现变速',wordSeek:'缺少逐词时间戳'}}:{seek:false,lineLoop:false,speed:false,wordSeek:false,reason:{all:'仅 macOS 可用'}};
-  if(mode==='system_player')return systemPlayer?{seek:true,lineLoop:false,speed:false,wordSeek:false,reason:{lineLoop:'当前仅支持单次句末暂停',speed:'客户端未开放变速控制',wordSeek:'缺少逐词时间戳'}}:{seek:false,lineLoop:false,speed:false,wordSeek:false,reason:{all:'仅 macOS 可用'}};
+  if(mode==='system_player')return systemPlayer?{seek:true,lineLoop:false,speed:false,wordSeek:false,reason:{lineLoop:'当前仅支持单次句末暂停',speed:'客户端未开放变速控制',wordSeek:'缺少逐词时间戳'}}:{seek:false,lineLoop:false,speed:false,wordSeek:false,reason:{all:'仅 macOS 与 Windows 可用'}};
   return {seek:false,lineLoop:false,speed:false,wordSeek:false,reason:{all:'样例没有授权音源'}};
 }
 function createServer(){return http.createServer(async(req,res)=>{
@@ -43,7 +45,7 @@ function createServer(){return http.createServer(async(req,res)=>{
     if(req.method==='GET'&&assets[url.pathname]){
       const name=assets[url.pathname],ext=name.split('.').pop();return send(res,200,fs.readFileSync(path.join(root,name)),mime[ext]);
     }
-    if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:'offline_demo',modelConfigured:model.configured()});
+    if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:'offline_demo',platform:process.platform,modelConfigured:model.configured()});
     if(req.method==='GET'&&url.pathname==='/api/songs')return send(res,200,{songs,lines,provenance:'原创教学样例；非实时 Agent 生成'});
     if(req.method==='GET'&&url.pathname==='/api/playback/capabilities')return send(res,200,{offline:capabilities('offline'),localAudio:capabilities('local_audio'),macMusic:capabilities('mac_music'),systemPlayer:capabilities('system_player')});
     if(req.method==='GET'&&url.pathname.startsWith('/api/sessions/')){
@@ -63,12 +65,20 @@ function createServer(){return http.createServer(async(req,res)=>{
       return send(res,200,{songs:await neteaseCatalog.search(url.searchParams.get('q')||''),source:'网易云歌曲目录',reviewStatus:'unverified'});
     }
     if(req.method==='GET'&&url.pathname==='/api/netease/library'){
-      if(process.platform!=='darwin')return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 网易云客户端可用'}});
+      if(!['darwin','win32'].includes(process.platform))return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 与 Windows 网易云客户端可用'}});
       return send(res,200,{songs:await neteaseLibrary.library(),source:'本机网易云客户端歌曲列表',reviewStatus:'unverified'});
+    }
+    if(req.method==='GET'&&url.pathname==='/api/netease/playlists'){
+      if(process.platform!=='win32')return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'网易云本地歌单导入目前仅 Windows 可用'}});
+      return send(res,200,{playlists:neteaseLibrary.windowsPlaylists(),source:'本机网易云客户端歌单',reviewStatus:'unverified'});
     }
     if(req.method==='GET'&&url.pathname==='/api/qq/library'){
       if(process.platform!=='darwin')return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS QQ 音乐客户端可用'}});
       return send(res,200,{songs:await qqLibrary.library(),source:'本机 QQ 音乐客户端歌曲列表',reviewStatus:'unverified'});
+    }
+    if(req.method==='GET'&&url.pathname==='/api/qq/playlist'){
+      const playlist=await qqPlaylist.importPublicPlaylist(url.searchParams.get('value')||'');
+      return send(res,200,{playlist,source:'QQ 音乐公开分享歌单',reviewStatus:'unverified'});
     }
     if(req.method==='POST'&&url.pathname==='/api/agent/explain')return send(res,200,await model.explain(await read(req)));
     if(req.method==='GET'&&url.pathname==='/api/mac/status'){
@@ -76,11 +86,11 @@ function createServer(){return http.createServer(async(req,res)=>{
       return send(res,200,await mac.status());
     }
     if(req.method==='GET'&&url.pathname==='/api/player/status'){
-      if(!systemPlayer)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
+      if(!systemPlayer)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 与 Windows 可用'}});
       return send(res,200,await systemPlayer.status(url.searchParams.get('source')));
     }
     if(req.method==='POST'&&url.pathname==='/api/player/play-line'){
-      if(!systemPlayer)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
+      if(!systemPlayer)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 与 Windows 可用'}});
       const input=await read(req);
       if(!['qqmusic','netease'].includes(input.source)||typeof input.title!=='string'||!input.title||input.title.length>150||
         typeof input.artist!=='string'||!input.artist||input.artist.length>150||!Number.isFinite(input.startMs)||input.startMs<0||
@@ -90,7 +100,7 @@ function createServer(){return http.createServer(async(req,res)=>{
       return send(res,200,await systemPlayer.playLine(input.source,input.startMs/1000,input.title,input.artist,input.endMs/1000,{album:input.album,durationMs:input.durationMs}));
     }
     if(req.method==='POST'&&url.pathname==='/api/player/control'){
-      if(!systemPlayer)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
+      if(!systemPlayer)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 与 Windows 可用'}});
       const input=await read(req);
       if(!['qqmusic','netease'].includes(input.source)||!['play','pause','jump'].includes(input.action)||
         typeof input.title!=='string'||!input.title||input.title.length>150||typeof input.artist!=='string'||!input.artist||input.artist.length>150||
@@ -99,8 +109,16 @@ function createServer(){return http.createServer(async(req,res)=>{
         (input.durationMs!==undefined&&(!Number.isFinite(input.durationMs)||input.durationMs<=0||input.durationMs>3600000)))throw Error('播放控制参数无效');
       return send(res,200,await systemPlayer.control(input.source,input.action,input.title,input.artist,input.seconds,{album:input.album,durationMs:input.durationMs}));
     }
+    if(req.method==='POST'&&url.pathname==='/api/player/open-track'){
+      if(!systemPlayer?.openTrack)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'直接点播目前仅 Windows 可用'}});
+      const input=await read(req),song=input.song;
+      if(!['qqmusic','netease'].includes(input.source)||!song||!/^\d{1,20}$/.test(String(song.id||''))||
+        (song.playlistId!==undefined&&(typeof song.playlistId!=='string'||song.playlistId.length>40))||
+        (song.trackIndex!==undefined&&(!Number.isInteger(song.trackIndex)||song.trackIndex<0||song.trackIndex>100000)))throw Error('点播参数无效');
+      return send(res,200,await systemPlayer.openTrack(input.source,{id:String(song.id),playlistId:song.playlistId,trackIndex:song.trackIndex}));
+    }
     if(req.method==='POST'&&url.pathname==='/api/player/queue-step'){
-      if(!systemPlayer)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
+      if(!systemPlayer)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 与 Windows 可用'}});
       const input=await read(req);
       if(!['qqmusic','netease'].includes(input.source)||!['next','previous'].includes(input.direction)||
         typeof input.title!=='string'||!input.title||input.title.length>150||typeof input.artist!=='string'||!input.artist||input.artist.length>150||

@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $=id=>document.getElementById(id);
-  const state={song:null,lines:[],connected:false,provider:'apple',qqSongs:[],pendingSong:null,connecting:false};
+  const state={song:null,lines:[],connected:false,provider:'apple',platform:'unknown',qqSongs:[],qqSource:'本机 QQ 音乐',neteasePlaylists:[],pendingSong:null,connecting:false};
   let pendingCheckTimer=null,pendingCheckAttempts=0;
   const providerName={apple:'Mac「音乐」',qqmusic:'QQ 音乐',netease:'网易云音乐'};
   const normal=s=>String(s||'').normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
@@ -77,10 +77,23 @@
     };
     return button;
   }
+  function nativePlayButton(song){
+    const status=$(song.provider==='qqmusic'?'qqLibraryStatus':'neteaseSearchStatus');
+    const button=make('button',`在${providerName[song.provider]}播放`);button.type='button';
+    button.onclick=async()=>{
+      setPendingSong(song);status.textContent=`正在让 Windows ${providerName[song.provider]}播放 ${song.title}…`;
+      try{
+        await request('/api/player/open-track','POST',{source:song.provider,song:{id:String(song.id),playlistId:song.playlistId,trackIndex:song.trackIndex}});
+        status.textContent='已发出点播命令，正在核对客户端实际曲目…';
+        pendingCheckTimer=setTimeout(()=>{pendingCheckTimer=null;if(state.pendingSong===song)connectMusic()},700);
+      }catch(error){clearPendingCheck();state.pendingSong=null;status.textContent='点播失败：'+error.message}
+    };
+    return button;
+  }
   function showCurrentSong(song){
     const card=document.createElement('article');card.className='song-card';card.append(make('small',providerName[song.provider]+' · 当前曲目'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)+(song.album?' · '+song.album:'')));
     const button=make('button','查看歌词与逐句播放');button.onclick=()=>selectSong(song);card.append(button);$('musicSongs').replaceChildren(card);
-    if(['qqmusic','netease'].includes(song.provider)&&playAddress(song))card.append(directPlayLink(song),copyPlayLink(song));
+    if(['qqmusic','netease'].includes(song.provider)&&playAddress(song)&&state.platform!=='win32')card.append(directPlayLink(song),copyPlayLink(song));
   }
   async function connectMusic(manual=false){
     if(state.connecting)return;
@@ -111,7 +124,9 @@
           state.pendingSong=null;
         }
         const song={title:data.title,artist:data.artist,album:data.album||'',durationMs,provider,playbackVerified:true,
-          ...(samePreview&&preview.providerId?{providerId:preview.providerId}:{})};
+          providerId:String(data.providerId||(samePreview&&preview.providerId)||''),
+          ...(samePreview&&preview.songmid?{songmid:preview.songmid}:{}),
+          ...(samePreview&&preview.playlistId?{playlistId:preview.playlistId,trackIndex:preview.trackIndex}:{})};
         showCurrentSong(song);
         $('systemJumpSeconds').value=String(Math.round(data.position*10)/10);
         await selectSong(song);
@@ -134,27 +149,38 @@
   };
   function showQqResults(){
     const query=normal($('qqLibraryFilter').value),matches=state.qqSongs.filter(song=>!query||normal(song.title+' '+song.artist).includes(query));
-    $('qqLibraryResults').replaceChildren();$('qqLibraryStatus').textContent=`本机 QQ 音乐缓存 ${state.qqSongs.length} 首；筛选后 ${matches.length} 首，当前展示前 80 首。`;
+    $('qqLibraryResults').replaceChildren();$('qqLibraryStatus').textContent=`${state.qqSource} ${state.qqSongs.length} 首；筛选后 ${matches.length} 首，当前展示前 80 首。`;
     for(const song of matches.slice(0,80)){
-      const card=document.createElement('article');card.className='song-card';card.append(make('small','本机 QQ 音乐 · 未人工核对'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)+(song.album?' · '+song.album:'')));
+      const card=document.createElement('article');card.className='song-card';card.append(make('small',state.qqSource+' · 未人工核对'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)+(song.album?' · '+song.album:'')));
       const preview=make('button','先看同步歌词');preview.type='button';preview.onclick=()=>selectSong({...song,providerId:song.id});
-      card.append(preview,directPlayLink(song),copyPlayLink(song));$('qqLibraryResults').append(card);
+      card.append(preview);
+      if(state.platform==='win32')card.append(nativePlayButton(song));else card.append(directPlayLink(song),copyPlayLink(song));
+      $('qqLibraryResults').append(card);
     }
   }
   $('qqLibraryFilter').oninput=()=>{if(state.qqSongs.length)showQqResults()};
   $('qqLibrary').onclick=async()=>{
     $('qqLibraryStatus').textContent='正在读取本机 QQ 音乐客户端歌曲列表…';
-    try{const data=await request('/api/qq/library');state.qqSongs=data.songs;
+    try{const data=await request('/api/qq/library');state.qqSongs=data.songs;state.qqSource='本机 QQ 音乐缓存';
       if(state.provider==='qqmusic')showQqResults();
     }catch(error){$('qqLibraryStatus').textContent='读取失败：'+error.message}
   };
+  $('qqPlaylistForm').onsubmit=async event=>{
+    event.preventDefault();$('qqLibraryStatus').textContent='正在导入 QQ 音乐公开歌单的完整歌曲列表…';
+    try{const data=await request('/api/qq/playlist?'+new URLSearchParams({value:$('qqPlaylistValue').value.trim()}));
+      state.qqSongs=data.playlist.songs;state.qqSource=`歌单「${data.playlist.name}」`;
+      if(state.provider==='qqmusic')showQqResults();
+    }catch(error){$('qqLibraryStatus').textContent='导入失败：'+error.message}
+  };
   function showNeteaseResults(songs,source){
     $('neteaseResults').replaceChildren();
-    $('neteaseSearchStatus').textContent=songs.length?`${source}找到 ${songs.length} 首。请核对版本；可以复制播放地址到浏览器地址栏切歌。`:'没有找到歌曲。';
+    $('neteaseSearchStatus').textContent=songs.length?`${source}找到 ${songs.length} 首。请核对版本；${state.platform==='win32'?'可直接让客户端播放。':'可以复制播放地址到浏览器地址栏切歌。'}`:'没有找到歌曲。';
     for(const song of songs){
       const card=document.createElement('article');card.className='song-card';card.append(make('small',source+' · 未人工核对'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)+(song.album?' · '+song.album:'')));
       const preview=make('button','先看同步歌词');preview.type='button';preview.onclick=()=>selectSong({...song,providerId:song.id});
-      card.append(preview,directPlayLink(song),copyPlayLink(song));$('neteaseResults').append(card);
+      card.append(preview);
+      if(state.platform==='win32')card.append(nativePlayButton(song));else card.append(directPlayLink(song),copyPlayLink(song));
+      $('neteaseResults').append(card);
     }
   }
   $('neteaseSearchForm').onsubmit=async event=>{
@@ -168,6 +194,19 @@
     try{const data=await request('/api/netease/library');
       if(state.provider==='netease')showNeteaseResults(data.songs,'本机网易云');
     }catch(error){$('neteaseSearchStatus').textContent='读取失败：'+error.message}
+  };
+  $('neteasePlaylists').onclick=async()=>{
+    $('neteaseResults').replaceChildren();$('neteaseSearchStatus').textContent='正在只读导入网易云本机歌单…';
+    try{const data=await request('/api/netease/playlists');state.neteasePlaylists=data.playlists;
+      const select=$('neteasePlaylistSelect');select.replaceChildren();
+      for(const playlist of data.playlists){const option=document.createElement('option');option.value=playlist.id;option.textContent=`${playlist.name}（${playlist.songs.length} 首）`;select.append(option)}
+      $('neteasePlaylistLabel').hidden=!data.playlists.length;
+      if(data.playlists.length)showNeteaseResults(data.playlists[0].songs,`歌单「${data.playlists[0].name}」`);else $('neteaseSearchStatus').textContent='本机数据库里没有可导入的歌单。';
+    }catch(error){$('neteaseSearchStatus').textContent='导入失败：'+error.message}
+  };
+  $('neteasePlaylistSelect').onchange=()=>{
+    const playlist=state.neteasePlaylists.find(item=>item.id===$('neteasePlaylistSelect').value);
+    if(playlist)showNeteaseResults(playlist.songs,`歌单「${playlist.name}」`);
   };
   async function selectSong(song){
     state.song=song;state.lines=[];$('musicStudy').hidden=false;$('musicSongTitle').textContent=song.title+' · '+song.artist;
@@ -242,5 +281,12 @@
       if(!data.hits.length)$('discoverResults').textContent='已索引歌曲里没有找到这一表达；可以换一个词，或检查未匹配的歌词版本。';
     }catch(error){$('discoverStatus').textContent='检索失败：'+error.message}
   };
-  updateProvider();
+  (async()=>{
+    try{state.platform=(await request('/api/health')).platform||'unknown'}catch{}
+    if(state.platform==='win32'){
+      $('musicProvider').querySelector('option[value=apple]')?.remove();
+      $('musicProvider').value='qqmusic';$('qqLibrary').hidden=true;
+    }else $('neteasePlaylists').hidden=true;
+    updateProvider();
+  })();
 })();
