@@ -18,7 +18,7 @@ const mac=process.platform==='darwin'?require('./media/mac-music'):null;
 const systemPlayer=process.platform==='darwin'?require('./media/system-player').createBridge():
   process.platform==='win32'?require('./media/windows-player').createBridge():null;
 const root=path.join(__dirname,'..');
-const assets={'/':'frontend/index.html','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/style.css':'frontend/style.css'};
+const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/style.css':'frontend/style.css'};
 const mime={'html':'text/html; charset=utf-8','js':'text/javascript; charset=utf-8','css':'text/css; charset=utf-8'};
 function send(res,status,data,type='application/json; charset=utf-8'){
   res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});

@@ -1,15 +1,172 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VIBE RECORDS · Agent 基座</title><link rel="stylesheet" href="/style.css"></head>
-<body><main class="shell"><header><div class="eyebrow">VIBE RECORDS / LANGUAGE AGENT</div><h1>从喜欢的音乐里，听见语言。</h1><p>在 macOS 或 Windows 连接 QQ 音乐、网易云音乐，按句听原声；Mac「音乐」还支持资料库检索与 Discover 语境比较。</p></header>
-<nav aria-label="模式"><button id="musicTab" class="active" type="button">我的音乐资料库</button><button id="demoTab" type="button">离线教学演示</button><button id="liveTab" type="button">本地音频与歌词</button></nav>
-<section id="music"><div class="section-head"><span>01 / 连接音乐软件</span><span class="tag">保留原声 · 本机播放</span></div>
-<p>Windows 可直接导入 QQ 公开歌单与网易云本机歌单，并从网页点播、跳转或逐句播放；macOS 继续使用系统媒体桥和客户端链接。所有歌单与播放控制只在本机处理。</p>
-<div class="controls"><label>音乐来源<select id="musicProvider"><option value="apple">Mac「音乐」</option><option value="qqmusic">QQ 音乐</option><option value="netease">网易云音乐</option></select></label><button id="connectMusic" type="button">连接当前音乐来源</button><label id="libraryArtistLabel">歌手<input id="libraryArtist" value="RIIZE" maxlength="80"></label><button id="loadLibrary" type="button">读取资料库歌曲</button></div>
-<p id="musicStatus" role="status">尚未检查本机「音乐」。</p><div id="musicSongs" class="song-grid"></div>
-<div id="qqLibraryPanel" hidden><button id="qqLibrary" type="button">读取我在 QQ 音乐的歌曲</button><form id="qqPlaylistForm"><label>QQ 公开歌单链接或 ID<input id="qqPlaylistValue" value="7039749142" maxlength="200" required></label><button type="submit">导入完整歌单</button></form><label>筛选歌曲<input id="qqLibraryFilter" placeholder="歌名或歌手"></label><p id="qqLibraryStatus" role="status"></p><div id="qqLibraryResults" class="song-grid"></div></div>
-<div id="neteaseSearch" hidden><button id="neteaseLibrary" type="button">读取我在网易云的歌曲</button><button id="neteasePlaylists" type="button">导入本机歌单</button><label id="neteasePlaylistLabel" hidden>已导入歌单<select id="neteasePlaylistSelect"></select></label><form id="neteaseSearchForm"><label>或搜索网易云歌曲<input id="neteaseQuery" value="RIIZE Love 119" maxlength="80" required></label><button type="submit">搜索歌曲</button></form><p id="neteaseSearchStatus" role="status"></p><div id="neteaseResults" class="song-grid"></div></div>
-<div id="musicStudy" hidden><div class="section-head"><span>02 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div><p id="musicSource"></p><label>歌词时间偏移（秒）<input id="musicOffset" type="number" step="0.1" value="0"></label><div id="systemControls" class="controls" hidden><button id="systemPrevious" type="button">上一首</button><button id="systemNext" type="button">下一首</button><button id="systemPlay" type="button">继续播放</button><button id="systemPause" type="button">暂停</button><label>跳到第几秒<input id="systemJumpSeconds" type="number" min="0" step="0.1" value="0"></label><button id="systemJump" type="button">跳转并播放</button></div><p id="musicPlayback" role="status">选择一句歌词开始播放。</p><div id="musicLyrics" class="lyric-list"></div></div>
-<div class="agent-box"><h2>Discover · 跨歌曲找语境</h2><p>检索当前歌手资料库里重复出现的表达，保留上下句与逐句原声。这里只做文字命中；语义差异需要继续核对。</p><form id="discoverForm"><label>韩语表达<input id="discoverQuery" value="다시" maxlength="40" required></label><button type="submit">寻找其他歌曲中的语境</button></form><p id="discoverStatus" role="status"></p><p id="discoverPlayback" role="status"></p><div id="discoverResults"></div></div>
-<p class="legacy">此前的功能仍可在 <a href="http://127.0.0.1:8766/vibe.html" target="_blank" rel="noopener">原 VIBE 原型 ↗</a> 使用；新项目会逐项迁入并验证。</p></section>
-<section id="demo" hidden><div class="section-head"><span>01 / 选择材料</span><span class="tag">原创教学样例 · 无音源</span></div><div id="songs" class="song-grid"></div><div id="lesson" hidden><div class="section-head"><span>02 / 语境侦探</span><span id="progress"></span></div><div id="source" class="source"></div><div class="question"><h2 id="prompt"></h2><div id="choices"></div><p id="feedback" role="status"></p><button id="retry" hidden type="button">带着提示再试一次</button></div></div></section>
-<section id="live" hidden><div class="section-head"><span>真实连接 / 逐项启用</span><span class="tag">实验能力</span></div><p>输入一首歌的版本信息，从 LRCLIB 检索同步歌词。结果未人工核对；请确认版本与时间偏移。</p><form id="lookup"><label>歌名<input id="title" required maxlength="150" value="Memories"></label><label>歌手<input id="artist" required maxlength="150" value="RIIZE"></label><label>时长（秒）<input id="duration" type="number" min="1" max="3600" required value="180"></label><button type="submit">检索歌词</button></form><p id="liveStatus" role="status"></p><div class="controls"><label>本地音频文件<input id="audioFile" type="file" accept="audio/*"></label><label>时间偏移（秒）<input id="offset" type="number" step="0.1" value="0"></label><label>速度<select id="speed"><option value="1">1.0×</option><option value="0.9">0.9×</option><option value="0.75">0.75×</option></select></label><label><input id="loop" type="checkbox">循环当前句</label></div><audio id="audio" controls></audio><p id="playStatus" role="status">没有音源时，逐句播放不可用。</p><div id="liveLines"></div><div class="agent-box"><h2>模型解释（可选）</h2><p>由本机服务读取环境变量中的密钥。生成结果会标明未人工核对；服务端未配置时不可用。</p><input id="expression" placeholder="输入要理解的表达，如 다시" maxlength="40"><button id="explain" type="button">解释当前材料</button><div id="explanation" role="status"></div></div></section>
-<footer>本项目只在本机回环地址运行。教学样例不含商业歌曲音频；真实歌词来自外部服务时需核对来源与版本。</footer></main><script src="/app.js" defer></script><script src="/music.js" defer></script></body></html>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="VIBE RECORDS：从喜欢的音乐里，听见语言。歌曲语境学习 Agent，本机运行。">
+<meta name="theme-color" content="#1B3FD8">
+<title>VIBE RECORDS · Agent 基座</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231B3FD8'/%3E%3Cpath d='M50 12 58 42 88 50 58 58 50 88 42 58 12 50 42 42z' fill='%23FF4D9D'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- 全页天空背景：WebGL 焦散光效；.sky 的 CSS 光斑是无 WebGL 时的备用画面 -->
+<div class="sky" aria-hidden="true">
+  <canvas class="sky-canvas"></canvas>
+  <span class="glow g1"></span><span class="glow g2"></span><span class="glow g3"></span>
+  <span class="glow g4"></span><span class="glow g5"></span><span class="glow g6"></span>
+  <span class="streak k1"></span><span class="streak k2"></span>
+  <span class="streak k3"></span><span class="streak k4"></span>
+  <span class="streak k5"></span><span class="streak k6"></span>
+  <span class="spark s1"></span><span class="spark s2"></span><span class="spark s3"></span>
+  <span class="spark s4"></span><span class="spark s5"></span><span class="spark s6"></span>
+</div>
+
+<main class="shell">
+  <header>
+    <div class="eyebrow">VIBE RECORDS / LANGUAGE AGENT</div>
+    <h1>从喜欢的音乐里，听见语言。</h1>
+    <p>在 macOS 或 Windows 连接 QQ 音乐、网易云音乐，按句听原声；Mac「音乐」还支持资料库检索与 Discover 语境比较。</p>
+    <div class="hero-strip" aria-hidden="true"><span>SIDE A · TRACK 02 · 한 · KO</span></div>
+  </header>
+
+  <nav aria-label="模式">
+    <button id="musicTab" class="active" type="button">我的音乐资料库</button>
+    <button id="demoTab" type="button">离线教学演示</button>
+    <button id="liveTab" type="button">本地音频与歌词</button>
+  </nav>
+
+  <section id="music">
+    <div class="section-head"><span>01 / 连接音乐软件</span><span class="tag">保留原声 · 本机播放</span></div>
+    <p>Windows 可直接导入 QQ 公开歌单与网易云本机歌单，并从网页点播、跳转或逐句播放；macOS 继续使用系统媒体桥和客户端链接。所有歌单与播放控制只在本机处理。</p>
+    <div class="controls">
+      <label>音乐来源
+        <select id="musicProvider">
+          <option value="apple">Mac「音乐」</option>
+          <option value="qqmusic">QQ 音乐</option>
+          <option value="netease">网易云音乐</option>
+        </select>
+      </label>
+      <button id="connectMusic" type="button">连接当前音乐来源</button>
+      <label id="libraryArtistLabel">歌手<input id="libraryArtist" value="RIIZE" maxlength="80"></label>
+      <button id="loadLibrary" type="button">读取资料库歌曲</button>
+    </div>
+    <p id="musicStatus" role="status">尚未检查本机「音乐」。</p>
+    <div id="musicSongs" class="song-grid"></div>
+
+    <div id="qqLibraryPanel" hidden>
+      <button id="qqLibrary" type="button">读取我在 QQ 音乐的歌曲</button>
+      <form id="qqPlaylistForm">
+        <label>QQ 公开歌单链接或 ID<input id="qqPlaylistValue" value="7039749142" maxlength="200" required></label>
+        <button type="submit">导入完整歌单</button>
+      </form>
+      <label>筛选歌曲<input id="qqLibraryFilter" placeholder="歌名或歌手"></label>
+      <p id="qqLibraryStatus" role="status"></p>
+      <div id="qqLibraryResults" class="song-grid"></div>
+    </div>
+
+    <div id="neteaseSearch" hidden>
+      <button id="neteaseLibrary" type="button">读取我在网易云的歌曲</button>
+      <button id="neteasePlaylists" type="button">导入本机歌单</button>
+      <label id="neteasePlaylistLabel" hidden>已导入歌单<select id="neteasePlaylistSelect"></select></label>
+      <form id="neteaseSearchForm">
+        <label>或搜索网易云歌曲<input id="neteaseQuery" value="RIIZE Love 119" maxlength="80" required></label>
+        <button type="submit">搜索歌曲</button>
+      </form>
+      <p id="neteaseSearchStatus" role="status"></p>
+      <div id="neteaseResults" class="song-grid"></div>
+    </div>
+
+    <div id="musicStudy" hidden>
+      <div class="section-head"><span>02 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div>
+      <p id="musicSource"></p>
+      <label>歌词时间偏移（秒）<input id="musicOffset" type="number" step="0.1" value="0"></label>
+      <div id="systemControls" class="controls" hidden>
+        <button id="systemPrevious" type="button">上一首</button>
+        <button id="systemNext" type="button">下一首</button>
+        <button id="systemPlay" type="button">继续播放</button>
+        <button id="systemPause" type="button">暂停</button>
+        <label>跳到第几秒<input id="systemJumpSeconds" type="number" min="0" step="0.1" value="0"></label>
+        <button id="systemJump" type="button">跳转并播放</button>
+      </div>
+      <p id="musicPlayback" role="status">选择一句歌词开始播放。</p>
+      <div id="musicLyrics" class="lyric-list"></div>
+    </div>
+
+    <div class="agent-box">
+      <h2>Discover · 跨歌曲找语境</h2>
+      <p>检索当前歌手资料库里重复出现的表达，保留上下句与逐句原声。这里只做文字命中；语义差异需要继续核对。</p>
+      <form id="discoverForm">
+        <label>韩语表达<input id="discoverQuery" value="다시" maxlength="40" required></label>
+        <button type="submit">寻找其他歌曲中的语境</button>
+      </form>
+      <p id="discoverStatus" role="status"></p>
+      <p id="discoverPlayback" role="status"></p>
+      <div id="discoverResults"></div>
+    </div>
+    <p class="legacy">此前的功能仍可在 <a href="http://127.0.0.1:8766/vibe.html" target="_blank" rel="noopener">原 VIBE 原型 ↗</a> 使用；新项目会逐项迁入并验证。</p>
+  </section>
+
+  <section id="demo" hidden>
+    <div class="section-head"><span>01 / 选择材料</span><span class="tag">原创教学样例 · 无音源</span></div>
+    <div id="songs" class="song-grid"></div>
+    <div id="lesson" hidden>
+      <div class="section-head"><span>02 / 语境侦探</span><span id="progress"></span></div>
+      <div class="progress" id="progressBar" role="progressbar" aria-label="学习进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <span class="progress__fill" id="progressFill"></span>
+      </div>
+      <div id="source" class="source"></div>
+      <div class="question">
+        <h2 id="prompt"></h2>
+        <div id="choices"></div>
+        <p id="feedback" role="status"></p>
+        <button id="retry" hidden type="button">带着提示再试一次</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="live" hidden>
+    <div class="section-head"><span>真实连接 / 逐项启用</span><span class="tag">实验能力</span></div>
+    <p>输入一首歌的版本信息，从 LRCLIB 检索同步歌词。结果未人工核对；请确认版本与时间偏移。</p>
+    <form id="lookup">
+      <label>歌名<input id="title" required maxlength="150" value="Memories"></label>
+      <label>歌手<input id="artist" required maxlength="150" value="RIIZE"></label>
+      <label>时长（秒）<input id="duration" type="number" min="1" max="3600" required value="180"></label>
+      <button type="submit">检索歌词</button>
+    </form>
+    <p id="liveStatus" role="status"></p>
+    <div class="controls">
+      <label>本地音频文件<input id="audioFile" type="file" accept="audio/*"></label>
+      <label>时间偏移（秒）<input id="offset" type="number" step="0.1" value="0"></label>
+      <label>速度
+        <select id="speed">
+          <option value="1">1.0×</option>
+          <option value="0.9">0.9×</option>
+          <option value="0.75">0.75×</option>
+        </select>
+      </label>
+      <label><input id="loop" type="checkbox">循环当前句</label>
+    </div>
+    <audio id="audio" controls></audio>
+    <p id="playStatus" role="status">没有音源时，逐句播放不可用。</p>
+    <div id="liveLines"></div>
+    <div class="agent-box">
+      <h2>模型解释（可选）</h2>
+      <p>由本机服务读取环境变量中的密钥。生成结果会标明未人工核对；服务端未配置时不可用。</p>
+      <input id="expression" placeholder="输入要理解的表达，如 다시" maxlength="40">
+      <button id="explain" type="button">解释当前材料</button>
+      <div id="explanation" role="status"></div>
+    </div>
+  </section>
+
+  <footer>
+    本项目只在本机回环地址运行。教学样例不含商业歌曲音频；真实歌词来自外部服务时需核对来源与版本。
+  </footer>
+</main>
+
+<script src="/sky.js" defer></script>
+<script src="/app.js" defer></script>
+<script src="/music.js" defer></script>
+</body>
+</html>
