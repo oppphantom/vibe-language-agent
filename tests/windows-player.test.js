@@ -5,10 +5,10 @@ const {createBridge}=require('../backend/media/windows-player');
 test('Windows QQ bridge maps media status and delegates exact line playback',async()=>{
   const calls=[];
   const runPowerShell=async(action,provider,options)=>{calls.push({action,provider,options});return action==='list'?[{title:'晴天',artist:'周杰伦',album:'叶惠美',endMs:269000,positionMs:10000,playbackStatus:'Paused'}]:[]};
-  const bridge=createBridge({runPowerShell,launch:()=>{},cdp:{}});
+  const bridge=createBridge({runPowerShell,launch:()=>{},cdp:{},resolveQqPath:()=>'/mock/QQMusic.exe'});
   const status=await bridge.status('qqmusic');assert.equal(status.title,'晴天');assert.equal(status.duration,269);
   const result=await bridge.playLine('qqmusic',10,'晴天','周杰伦',12,{album:'叶惠美',durationMs:269000});
-  assert.equal(result.autoPauseAt,12);assert.equal(calls[2].action,'play-range');assert.equal(calls[2].options.positionMs,10000);assert.equal(calls[2].options.endPositionMs,12000);
+  assert.equal(result.autoPauseAt,12);assert.equal(calls[2].action,'play-range');assert.equal(calls[2].options.positionMs,10000);assert.equal(calls[2].options.endPositionMs,12000);assert.equal(calls[2].options.playerPath,'/mock/QQMusic.exe');
 });
 
 test('Windows NetEase bridge uses native playlist jump context',async()=>{

@@ -73,7 +73,7 @@ function createCdp({fetchImpl=fetch,WebSocketImpl=globalThis.WebSocket,wait=slee
   return {evaluate,currentTrack,currentProgress,seek,state,playRange,jump,queueStep};
 }
 
-function createBridge({runPowerShell,launch=detached,wait=sleep,cdp=createCdp()}={}){
+function createBridge({runPowerShell,launch=detached,wait=sleep,cdp=createCdp(),resolveQqPath=qqPath,resolveNeteasePath=neteasePath}={}){
   async function media(action,provider,options={}){
     if(runPowerShell)return runPowerShell(action,provider,options);
     const args=['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-Action',action,'-Provider',provider];
@@ -101,25 +101,25 @@ function createBridge({runPowerShell,launch=detached,wait=sleep,cdp=createCdp()}
   }
   async function openTrack(source,song){
     if(!labels[source]||!/^\d{1,20}$/.test(String(song?.id||'')))throw Error('歌曲 ID 无效');
-    if(source==='qqmusic')launch(qqPath(),['/playbysongid',`cmd_count==1&&id_0==${song.id}&&songtype_0==0`]);
+    if(source==='qqmusic')launch(resolveQqPath(),['/playbysongid',`cmd_count==1&&id_0==${song.id}&&songtype_0==0`]);
     else if(song.playlistId&&song.playlistId!=='current-queue')await cdp.jump(song.playlistId,song.id,Number.isInteger(song.trackIndex)?song.trackIndex:undefined);
     else {
       const command='orpheus://'+Buffer.from(JSON.stringify({type:'song',id:String(song.id),cmd:'play'})).toString('base64');
-      launch(neteasePath(),[`--webcmd=${command}`]);
+      launch(resolveNeteasePath(),[`--webcmd=${command}`]);
     }
     return {ok:true,source,trackId:String(song.id)};
   }
   async function playLine(source,start,title,artist,end,identity={}){
     const current=await status(source);assertTrack(current,source,title,artist,identity);
     if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||(current.duration&&end>current.duration+2))throw Error('歌词时间超出歌曲范围');
-    if(source==='qqmusic'){await media('play-range',source,{positionMs:start*1000,endPositionMs:end*1000,playerPath:qqPath()});return {ok:true,source,title,position:start,autoPauseAt:end}}
+    if(source==='qqmusic'){await media('play-range',source,{positionMs:start*1000,endPositionMs:end*1000,playerPath:resolveQqPath()});return {ok:true,source,title,position:start,autoPauseAt:end}}
     return {...await cdp.playRange(start*1000,end*1000),source,title};
   }
   async function control(source,action,title,artist,seconds,identity={}){
     const current=await status(source);assertTrack(current,source,title,artist,identity);
     if(action==='jump'&&(!Number.isFinite(seconds)||seconds<0||(current.duration&&seconds>current.duration)))throw Error('跳转时间超出歌曲范围');
     if(source==='qqmusic'){
-      if(action==='jump'){launch(qqPath(),['/seekto',String(seconds)]);await wait(250);await media('play',source)}else await media(action,source);
+      if(action==='jump'){launch(resolveQqPath(),['/seekto',String(seconds)]);await wait(250);await media('play',source)}else await media(action,source);
     }else if(action==='jump'){const result=await cdp.seek(seconds*1000);await cdp.state(result.playId,'play')}
     else if(action==='play'){const progress=await cdp.currentProgress(true);if(!progress)throw Error('网易云没有恢复播放')}
     else {const progress=await cdp.currentProgress(false);if(progress)await cdp.state(progress.playId,'pause')}
