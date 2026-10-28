@@ -18,17 +18,92 @@ const mac=process.platform==='darwin'?require('./media/mac-music'):null;
 const systemPlayer=process.platform==='darwin'?require('./media/system-player').createBridge():
   process.platform==='win32'?require('./media/windows-player').createBridge():null;
 const root=path.join(__dirname,'..');
-const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/style.css':'frontend/style.css'};
+const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/text-edit.js':'frontend/text-edit.js','/style.css':'frontend/style.css'};
 const mime={'html':'text/html; charset=utf-8','js':'text/javascript; charset=utf-8','css':'text/css; charset=utf-8'};
 function send(res,status,data,type='application/json; charset=utf-8'){
   res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
   res.end(type.startsWith('application/json')?JSON.stringify(data):data);
 }
-function read(req){return new Promise((resolve,reject)=>{
+function read(req,limit=12000){return new Promise((resolve,reject)=>{
   const parts=[];let size=0;
-  req.on('data',chunk=>{size+=chunk.length;if(size>12000){reject(Error('请求过长'));req.destroy();}else parts.push(chunk)});
+  req.on('data',chunk=>{size+=chunk.length;if(size>limit){reject(Error('请求过长'));req.destroy();}else parts.push(chunk)});
   req.on('end',()=>{try{resolve(JSON.parse(Buffer.concat(parts).toString('utf8')))}catch{reject(Error('请求不是有效 JSON'))}});req.on('error',reject);
 });}
+const UI_TEXT_FILE=path.join(root,'frontend/index.html');
+function escapeHtml(text){return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function allIndices(source,needle){const indices=[];let index=0;while((index=source.indexOf(needle,index))!==-1){indices.push(index);index+=needle.length;}return indices;}
+const escapeRegExp=text=>text.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+// 返回源码中某个标签的每个元素区间，用于在祖先元素内部定位重复文案
+function tagRegions(source,tag){
+  const token=new RegExp(`<${tag}(?=[\\s>/])|</${tag}\\s*>`,'gi'),regions=[];
+  let depth=0,regionStart=-1,match;
+  while((match=token.exec(source))){
+    if(match[0][1]!=='/'){depth++;if(depth===1)regionStart=match.index;}
+    else if(depth>0){
+      depth--;
+      if(depth===0)regions.push({start:regionStart,end:match.index+match[0].length});
+    }
+  }
+  if(depth>0&&regionStart!==-1)regions.push({start:regionStart,end:source.length});
+  return regions;
+}
+function regionById(source,tag,id){
+  const needle=`id="${id}"`;
+  let index=source.indexOf(needle);
+  while(index!==-1){
+    const open=source.lastIndexOf('<',index);
+    if(open!==-1&&source.slice(open,open+tag.length+1).toLowerCase()===('<'+tag)&&/[\s>]/.test(source[open+tag.length+1]||'')){
+      const region=tagRegions(source,tag).find(item=>item.start===open);
+      if(region)return region;
+    }
+    index=source.indexOf(needle,index+needle.length);
+  }
+  return null;
+}
+// 先找全局唯一；否则按祖先元素区间逐步收窄（如 <h1> 与 <meta description> 含有同一句）
+function locateText(source,candidates,scope){
+  for(const candidate of candidates){
+    const indices=allIndices(source,candidate);
+    if(indices.length===1)return {candidate,index:indices[0]};
+  }
+  if(!Array.isArray(scope))return null;
+  for(const ancestor of scope){
+    const tag=ancestor&&typeof ancestor.tag==='string'?ancestor.tag.toLowerCase():'';
+    if(!/^[a-z][a-z0-9-]{0,30}$/.test(tag))continue;
+    const id=typeof ancestor.id==='string'&&/^[\w:.-]{1,80}$/.test(ancestor.id)?ancestor.id:'';
+    const regions=id?[regionById(source,tag,id)].filter(Boolean):tagRegions(source,tag);
+    for(const candidate of candidates){
+      const indices=allIndices(source,candidate);
+      const hits=regions
+        .map(region=>indices.filter(index=>index>=region.start&&index<region.end))
+        .filter(list=>list.length>0);
+      if(hits.length===1&&hits[0].length===1)return {candidate,index:hits[0][0]};
+    }
+  }
+  return null;
+}
+// 把页面里改过的文字写回 index.html；动态生成、无法定位的文本不写入
+function saveUiText(input){
+  const edits=input&&input.edits;
+  if(!Array.isArray(edits)||!edits.length||edits.length>200)throw Error('文字修改参数无效');
+  let source=fs.readFileSync(UI_TEXT_FILE,'utf8');
+  const applied=[],skipped=[];
+  for(const edit of edits){
+    const from=edit&&edit.from,to=edit&&edit.to;
+    if(typeof from!=='string'||typeof to!=='string'||!from.trim()||from===to||from.length>4000||to.length>4000){
+      skipped.push({text:String(from||'').slice(0,60),reason:'参数无效'});continue;
+    }
+    const candidates=[from];
+    const escaped=escapeHtml(from);
+    if(escaped!==from)candidates.push(escaped);
+    const found=locateText(source,candidates,edit.scope);
+    if(!found){skipped.push({text:from.slice(0,60),reason:'源码中没有匹配，可能是动态渲染或相同文字过多'});continue;}
+    source=source.slice(0,found.index)+escapeHtml(to)+source.slice(found.index+found.candidate.length);
+    applied.push(from.slice(0,60));
+  }
+  if(applied.length)fs.writeFileSync(UI_TEXT_FILE,source,'utf8');
+  return {file:'frontend/index.html',applied,skipped};
+}
 function capabilities(mode){
   if(mode==='local_audio')return {seek:true,lineLoop:true,speed:true,wordSeek:false,reason:{wordSeek:'缺少逐词时间戳'}};
   if(mode==='mac_music')return mac?{seek:true,lineLoop:false,speed:false,wordSeek:false,reason:{lineLoop:'Mac 音乐仅支持单次自动暂停',speed:'桥接未实现变速',wordSeek:'缺少逐词时间戳'}}:{seek:false,lineLoop:false,speed:false,wordSeek:false,reason:{all:'仅 macOS 可用'}};
@@ -143,6 +218,7 @@ function createServer(){return http.createServer(async(req,res)=>{
         !Number.isFinite(input.startMs)||input.startMs<0||!Number.isFinite(input.endMs)||input.endMs<=input.startMs||input.endMs>3600000)throw Error('播放参数无效');
       return send(res,200,await mac.playLine(input.startMs/1000,input.title,input.artist,input.endMs/1000));
     }
+    if(req.method==='POST'&&url.pathname==='/api/ui-text')return send(res,200,saveUiText(await read(req,200000)));
     send(res,404,{error:{code:'NOT_FOUND',message:'接口不存在'}});
   }catch(error){
     const code=error.code||'REQUEST_FAILED';

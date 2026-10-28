@@ -217,30 +217,31 @@ a:hover{color:var(--blue-dark)}
 .shell{position:relative;z-index:1;max-width:1080px;margin:0 auto;padding:40px 24px 72px}
 header{position:relative;padding:40px 0 28px}
 header > *{position:relative;z-index:1}
+/* 顶部两枚小气泡改成纯文字，一左一右 */
+.top-meta{
+  display:flex;align-items:center;justify-content:space-between;gap:24px;
+  margin:0 0 20px;
+}
 .eyebrow{
   display:inline-block;
-  padding:7px 14px;
-  border:2px solid var(--blue-soft-line);
-  border-radius:9999px;
-  background:var(--blue-soft);
-  color:var(--blue);
+  margin:0;padding:0;
+  border:0;border-radius:0;background:none;
+  color:#000;
   font-family:var(--font-display);
   font-size:11px;
   font-weight:700;
   letter-spacing:1.2px;
   text-transform:uppercase;
 }
-header p{max-width:640px;color:var(--ink-soft);font-size:17px;line-height:1.7}
 .hero-strip{
   display:inline-flex;align-items:center;gap:8px;
-  margin-top:16px;padding:8px 14px;
-  border:2px solid var(--line);
-  border-radius:9999px;
-  background:var(--surface-2);
-  color:var(--ink-muted);
+  margin:0;padding:0;
+  border:0;border-radius:0;background:none;
+  color:#000;
   font-family:var(--font-display);
   font-size:11px;font-weight:700;letter-spacing:1.2px;
 }
+header p{max-width:640px;color:var(--ink-soft);font-size:17px;line-height:1.7}
 .section-head{
   display:flex;align-items:center;justify-content:space-between;gap:16px;
   margin:40px 0 16px;padding:0;
@@ -735,9 +736,11 @@ footer{
 @media (max-width:600px){
   .shell{padding:20px 16px 56px}
   header{padding:24px 0 16px}
+  .top-meta{gap:12px;margin-bottom:16px}
+  .hero-strip{font-size:10px;letter-spacing:.8px;text-align:right}
   h1{font-size:clamp(30px,8.5vw,42px)}
   header p{font-size:16px;line-height:1.7}
-  .eyebrow{font-size:10px;letter-spacing:.8px;padding:8px 13px}
+  .eyebrow{font-size:10px;letter-spacing:.8px}
   .section-head{align-items:flex-start;gap:10px;margin:32px 0 12px;font-size:18px}
   .tag{font-size:11px;padding:6px 12px;white-space:normal}
   #progress{font-size:12px;padding:6px 12px}
@@ -888,18 +891,11 @@ nav button.active{
   box-shadow:inset 0 1px 0 rgba(255,255,255,.35),
     0 8px 18px -10px rgba(18,48,159,.55);
 }
-.tag,.hero-strip{
+.tag{
   border:1px solid var(--glass-chip-border);
   background-color:var(--glass-chip-bg);
   color:var(--ink-soft);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
-  -webkit-backdrop-filter:blur(8px) saturate(var(--glass-sat));
-  backdrop-filter:blur(8px) saturate(var(--glass-sat));
-}
-.eyebrow{
-  border-color:rgba(203,213,255,.75);
-  background-color:rgba(233,237,255,.55);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.75);
   -webkit-backdrop-filter:blur(8px) saturate(var(--glass-sat));
   backdrop-filter:blur(8px) saturate(var(--glass-sat));
 }
@@ -964,8 +960,7 @@ input:not([type="checkbox"]):focus,select:focus{
 
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   :is(.song-card,.question,.source,.agent-box,.context-card){background-color:rgba(255,255,255,.88)}
-  nav button,.tag,.hero-strip{background-color:rgba(255,255,255,.84)}
-  .eyebrow{background-color:rgba(233,237,255,.86)}
+  nav button,.tag{background-color:rgba(255,255,255,.84)}
   input:not([type="checkbox"]),select{background-color:rgba(255,255,255,.9)}
   .source article,.context-card .context,.agent-box .context-card{background-color:rgba(255,255,255,.72)}
 }
@@ -974,7 +969,7 @@ input:not([type="checkbox"]):focus,select:focus{
   :is(.song-card,.question,.source,.agent-box,.context-card)::before{
     animation:none;--glass-angle:35deg}
   .song-card,.question,.source,.agent-box,.context-card,
-  nav button,.tag,.hero-strip,.eyebrow{transition:none}
+  nav button,.tag{transition:none}
   .song-card:hover,.context-card:hover{transform:none}
 }
 
@@ -982,6 +977,53 @@ input:not([type="checkbox"]):focus,select:focus{
   :is(.song-card,.question,.source,.agent-box,.context-card){
     background:#fff!important;-webkit-backdrop-filter:none;backdrop-filter:none}
   :is(.song-card,.question,.source,.agent-box,.context-card)::before{display:none}
+}
+
+/* 临时文字编辑：右上角开关，编辑时禁用控件点击避免误触 --------------------- */
+button.text-edit-toggle{
+  position:fixed;top:20px;right:20px;z-index:60;
+  padding:9px 16px;min-height:40px;
+  border:1px solid rgba(255,255,255,.6);border-radius:9999px;
+  background:rgba(24,24,36,.82);color:#fff;
+  font-family:var(--font-display);font-size:12px;font-weight:700;letter-spacing:.6px;
+  cursor:pointer;
+  box-shadow:0 10px 24px -14px rgba(16,16,28,.8);
+  -webkit-backdrop-filter:blur(10px) saturate(1.15);
+  backdrop-filter:blur(10px) saturate(1.15);
+  transition:background-color .15s var(--ease),transform .15s var(--ease);
+}
+button.text-edit-toggle:hover{background:rgba(24,24,36,.94)}
+button.text-edit-toggle:active{transform:translateY(1px)}
+button.text-edit-toggle:disabled{cursor:progress;opacity:.8}
+body.is-text-editing .text-edit-toggle{background:var(--blue);border-color:rgba(255,255,255,.75)}
+body.is-text-editing .shell{
+  outline:2px dashed rgba(27,63,216,.45);outline-offset:10px;border-radius:16px;
+  caret-color:var(--blue);
+}
+body.is-text-editing .shell :is(button,a,input,select,textarea,audio,video,canvas,svg){pointer-events:none}
+body.is-text-editing .shell :is(button,a){cursor:text}
+
+.text-edit-status{
+  position:fixed;top:68px;right:20px;z-index:60;max-width:340px;margin:0;
+  padding:8px 12px;border-radius:12px;
+  background:rgba(24,24,36,.92);color:#fff;
+  font-size:12px;line-height:1.5;
+  box-shadow:0 10px 24px -14px rgba(16,16,28,.8);
+}
+.text-edit-status[hidden]{display:none}
+.text-edit-status.is-error{background:rgba(150,24,48,.94)}
+
+/* 给右上角开关让出位置，避免盖住页头右侧文字 */
+@media (max-width:1300px){
+  .top-meta{padding-right:124px}
+}
+
+@media (max-width:600px){
+  .text-edit-toggle{top:12px;right:12px;padding:8px 14px;font-size:11px}  .text-edit-status{top:58px;right:12px;left:12px;max-width:none}
+  .top-meta{padding-right:92px}
+}
+@media print{
+  .text-edit-toggle,.text-edit-status{display:none}
 }
 
 
