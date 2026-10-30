@@ -6,7 +6,7 @@
   "engines": {"node": ">=20"},
   "scripts": {
     "start": "node backend/server.js",
-    "check": "node --check backend/server.js && node --check frontend/app.js && node --check frontend/music.js && node --test",
+    "check": "node --check backend/server.js && node --check backend/agent/generate-floor.js && node --check content/validate-floor-draft.js && node --check frontend/app.js && node --check frontend/music.js && node --check frontend/map-preview.js && node --test",
     "smoke": "node scripts/smoke.js"
   }
 }

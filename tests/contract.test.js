@@ -30,13 +30,28 @@ test('temporary lyric upstream failure is retried once',async()=>{
   const result=await findLyrics('Song','Artist',120000,fake);
   assert.equal(attempts,2);assert.equal(result.lines.length,1);
 });
-test('wrong answer causes remediation, duplicate is idempotent, correct answer completes',()=>{
+test('gold fixture validates as P0 RunDraft with P1 prelude fields',()=>{
+  const fixture=require('../content/fixtures/demo');
+  const {validateRunDraftP0,draftFromFixture}=require('../content/validate-run-draft');
+  const draft=draftFromFixture(fixture);
+  assert.equal(validateRunDraftP0(draft,fixture.lines.map(l=>l.id)),true);
+  assert.equal(draft.nodes[1].contrastAxis.includes('走路'),true);
+  assert.equal(draft.nodes[2].transfer,true);
+  assert.throws(()=>validateRunDraftP0({...draft,cards:[{id:'x'}]},fixture.lines.map(l=>l.id)));
+});
+test('wrong answer causes remediation, duplicate is idempotent, path advances across three nodes',()=>{
   const s=session.begin('demo-morning');
+  assert.equal(s.progress.total,3);assert.equal(s.currentNodeId,'demo-dasi');
   const wrong={sessionId:s.id,nodeId:'demo-dasi',submissionId:'one',choice:1,attempt:1,hintUsed:false};
   const first=session.answer(wrong);assert.equal(first.feedback.nextAction.type,'remediate');assert.equal(first.session.progress.completed,0);
   assert.deepEqual(session.answer(wrong),first);assert.equal(session.get(s.id).history.length,1);
-  const second=session.answer({...wrong,submissionId:'two',choice:0,attempt:2,hintUsed:true});
-  assert.equal(second.session.progress.completed,1);assert.equal(session.get(s.id).history.length,2);
+  const n1=session.answer({...wrong,submissionId:'two',choice:0,attempt:2,hintUsed:true});
+  assert.equal(n1.session.progress.completed,1);assert.equal(n1.session.currentNodeId,'demo-dasi-contrast');
+  const n2=session.answer({sessionId:s.id,nodeId:'demo-dasi-contrast',submissionId:'three',choice:0,attempt:1,hintUsed:false});
+  assert.equal(n2.session.progress.completed,2);assert.equal(n2.session.currentNodeId,'demo-dasi-final');
+  const n3=session.answer({sessionId:s.id,nodeId:'demo-dasi-final',submissionId:'four',choice:0,attempt:1,hintUsed:false});
+  assert.equal(n3.session.progress.completed,3);assert.equal(n3.session.currentNodeId,null);
+  assert.equal(session.get(s.id).history.length,4);
 });
 test('platform capabilities never claim unsupported word audio or speed',()=>{
   assert.equal(capabilities('offline').seek,false);assert.equal(capabilities('local_audio').wordSeek,false);

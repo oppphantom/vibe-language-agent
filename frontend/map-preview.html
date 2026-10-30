@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>尖塔路线预览 V2 · VIBE</title>
+  <style>
+    :root{--bg:#10141a;--panel:#1a222d;--ink:#e8eef6;--muted:#93a0b2;--line:#334155;--hp:#e07a6a;--insight:#6db3a8;--accent:#7f9ad4}
+    *{box-sizing:border-box}body{margin:0;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink)}
+    .wrap{max-width:1240px;margin:0 auto;padding:20px 16px 56px}
+    a.back{color:var(--insight);text-decoration:none;font-size:.85rem}
+    h1{font-size:1.45rem;margin:10px 0 6px}header p{margin:0;color:var(--muted);line-height:1.55;max-width:48rem}
+    .hud{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:14px 0;padding:10px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px}
+    .hud .bar{flex:1;min-width:140px}.hud label{font-size:.75rem;color:var(--muted);display:block;margin-bottom:4px}
+    .meter{height:10px;background:#0d1218;border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+    .meter>i{display:block;height:100%;background:var(--hp)}
+    .meter.insight>i{background:var(--insight)}
+    .chip{border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:.75rem;color:var(--muted)}
+    .chip strong{color:var(--ink)}
+    .chars{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:12px 0 18px}
+    .char{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;text-align:left;color:inherit}
+    .char:hover,.char.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+    .char h3{margin:0 0 4px;font-size:1rem}.char .tag{color:var(--accent);font-size:.78rem}.char p{margin:6px 0 0;color:var(--muted);font-size:.82rem;line-height:1.45}
+    .char:disabled{opacity:.45;cursor:not-allowed}
+    .board{display:grid;grid-template-columns:280px 1fr;gap:14px}
+    @media(max-width:900px){.board{grid-template-columns:1fr}}
+    .map-card,.play{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px}
+    .map-scroll{max-height:640px;overflow:auto;border:1px dashed #2a3648;border-radius:10px;background:#121820;padding:8px}
+    svg#map{display:block;width:100%;min-height:560px}
+    .node{cursor:pointer}.node rect{rx:8}.node text{fill:var(--ink);font-size:11px;pointer-events:none}.node .sub{fill:var(--muted);font-size:9px}
+    .node.active rect{stroke:#fff;stroke-width:2.5}.node.cleared rect{opacity:.7}.node.reachable rect{filter:brightness(1.15)}
+    .edge-label{fill:var(--muted);font-size:9px}
+    .play h2{margin:0 0 8px;font-size:1.05rem}
+    .q{border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;background:#151c26}
+    .q button{display:block;width:100%;text-align:left;margin:6px 0;padding:8px 10px;border-radius:8px;border:1px solid #3b4b61;background:#243041;color:#fff;cursor:pointer}
+    .q button:hover{border-color:var(--accent)}.q button:disabled{opacity:.5;cursor:not-allowed}
+    .q .ok{border-color:#5f9f7a}.q .bad{border-color:#b86a60}
+    .muted{color:var(--muted);font-size:.85rem;line-height:1.5}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .actions button{background:var(--accent);color:#10141a;border:0;border-radius:8px;padding:8px 12px;font-weight:700;cursor:pointer}
+    .actions button.secondary{background:#314257;color:#fff}
+    .line{border-left:3px solid var(--insight);padding:4px 0 4px 8px;margin:4px 0;font-family:"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+    .relics{display:flex;flex-wrap:wrap;gap:6px}
+    .note{margin-top:14px;padding:10px 12px;border-radius:10px;background:#151c26;border:1px solid var(--line);color:var(--muted);font-size:.82rem;line-height:1.5}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p><a class="back" href="/">← 返回主站</a> · 角色说明见仓库 <code>docs/lessons/CHARACTERS.md</code></p>
+    <header>
+      <h1 id="title">尖塔路线预览 V2</h1>
+      <p id="designNote">加载中…</p>
+    </header>
+
+    <section id="pickChar">
+      <h2 style="font-size:1rem;margin:8px 0">开局选择角色</h2>
+      <p class="muted">角色决定整局被动；与单房主持 persona 不同。详情见下方卡片。</p>
+      <div class="chars" id="chars"></div>
+      <div class="actions"><button type="button" id="startRun" disabled>从起点出发</button></div>
+    </section>
+
+    <div id="runUi" hidden>
+      <div class="hud">
+        <div class="bar"><label>专注值 HP</label><div class="meter"><i id="hpBar" style="width:100%"></i></div><span class="chip" id="hpText">5/5</span></div>
+        <div class="bar"><label>洞察</label><div class="meter insight"><i id="insightBar" style="width:0%"></i></div><span class="chip" id="insightText">0</span></div>
+        <span class="chip" id="charChip">角色</span>
+        <div class="relics" id="relics"></div>
+        <button type="button" class="secondary" id="resetRun" style="margin-left:auto;background:#314257;color:#fff;border:0;border-radius:8px;padding:8px 12px;cursor:pointer">重开</button>
+      </div>
+      <div class="board">
+        <section class="map-card">
+          <div class="muted" style="margin-bottom:6px">点击<strong>高亮可到达</strong>的房间进入 · 虚线为可选岔路</div>
+          <div class="map-scroll"><svg id="map" viewBox="0 0 260 620" role="img"></svg></div>
+        </section>
+        <section class="play" id="play">
+          <p class="muted">选择角色并出发后，在此作答题包。</p>
+        </section>
+      </div>
+    </div>
+    <p class="note" id="footerNote"></p>
+  </div>
+  <script src="/map-preview.js"></script>
+</body>
+</html>

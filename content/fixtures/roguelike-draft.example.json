@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "runId": "example-roguelike-not-wired",
+  "pathTemplate": "p1_roguelike_branch",
+  "branching": true,
+  "startSongId": "demo-morning",
+  "expression": "다시",
+  "baseMeaning": "再次、重新（again）",
+  "learningGoal": "在保底一词多义线之外，可选剧情或文化支线（示例，未接线）",
+  "unverifiedClaims": ["文化线背景未人工核对"],
+  "route": ["n-context-1", "n-context-2", "n-final"],
+  "graph": {
+    "startNodeId": "n-context-1",
+    "nodes": ["n-context-1", "n-context-2", "n-galgame-a", "n-culture-b", "n-final"],
+    "edges": [
+      { "from": "n-context-1", "to": "n-context-2", "when": "on_correct", "label": "保底：继续对照" },
+      { "from": "n-context-1", "to": "n-galgame-a", "when": "player_choice", "label": "剧情线" },
+      { "from": "n-context-1", "to": "n-culture-b", "when": "player_choice", "label": "文化线", "rewardCardIds": ["card-1"] },
+      { "from": "n-context-2", "to": "n-final", "when": "on_correct" },
+      { "from": "n-galgame-a", "to": "n-final", "when": "player_choice", "label": "去最终挑战" },
+      { "from": "n-culture-b", "to": "n-final", "when": "player_choice", "label": "去最终挑战" }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "n-context-1",
+      "mapNode": "context",
+      "personaId": "polysemy_tutor",
+      "type": "context_choice",
+      "note": "形状同 P0 第一关；此处仅作肉鸽示例占位"
+    },
+    {
+      "id": "n-galgame-a",
+      "mapNode": "galgame",
+      "personaId": "story_npc",
+      "type": "dialogue_choice",
+      "speaker": "同伴",
+      "line": "明天要不要再一起走走？",
+      "choices": [
+        { "reply": "好啊，再走一段。", "nextNodeId": "n-final" },
+        { "reply": "我想先把没说完的话谈完。", "nextNodeId": "n-final" }
+      ]
+    },
+    {
+      "id": "n-culture-b",
+      "mapNode": "culture",
+      "personaId": "culture_guide",
+      "type": "culture_explore",
+      "explorationPrompt": "这句里的时间词如何把「再次」推到未来？",
+      "optionalBackground": "未核实的文化联想请留在卡片，勿作唯一答案。",
+      "relatedLineIds": ["demo-return-2"]
+    },
+    {
+      "id": "n-final",
+      "mapNode": "final_challenge",
+      "personaId": "polysemy_tutor",
+      "type": "context_choice",
+      "transfer": true
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-1",
+      "personaId": "culture_guide",
+      "title": "时间词小记",
+      "body": "「내일」把动作放到明天，属句内可观察信息。",
+      "relatedLineIds": ["demo-return-2"],
+      "kind": "culture_trivia",
+      "reviewStatus": "unverified",
+      "quizEligible": false
+    }
+  ],
+  "provenance": {
+    "generator": "example",
+    "status": "unverified",
+    "sourceLineIds": ["demo-morning-2", "demo-return-2"]
+  },
+  "needsHumanReview": true,
+  "_comment": "示例仅供 D/A/B 对齐形状；不要被 session 加载，不要当已实现肉鸽。"
+}

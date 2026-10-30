@@ -24,18 +24,33 @@ Content-Type: application/json
 {"songId":"demo-morning"}
 ```
 
-创建后调用 `GET /api/sessions/{id}/node` 获取题面。提交答案的示例：
+创建后会话带有固定 `route`（当前为三节点：`demo-dasi` → `demo-dasi-contrast` → `demo-dasi-final`）。`progress.total` 等于 `route.length`；`progress.completed` 为已答对的关数；`currentNodeId` 为当前关，整条路径完成后为 `null`。
+
+调用 `GET /api/sessions/{id}/node` 获取**当前关**题面（不含 `correctIndex`）。提交答案的示例：
 
 ```json
 {"sessionId":"会话 ID","nodeId":"demo-dasi","submissionId":"attempt-1","choice":1,"attempt":1,"hintUsed":false}
 ```
 
-向 `POST /api/answers` 重复发送同一 `submissionId` 会返回同一结果，不会重复增加历史。答错时 `feedback.nextAction.type` 为 `remediate`，节点仍可作答。刷新网页后可通过 `GET /api/sessions/{id}` 读取进度；服务重启后当前内存会话会失效。
+向 `POST /api/answers` 重复发送同一 `submissionId` 会返回同一结果，不会重复增加历史。答错时 `feedback.nextAction.type` 为 `remediate`，**不推进** `route`，当前节点仍可作答。答对时推进到下一关（`continue`）；最后一关答对后 `currentNodeId` 为空。刷新网页后可通过 `GET /api/sessions/{id}` 读取进度；服务重启后当前内存会话会失效。
 
 ## 歌词与模型
 
 - `POST /api/lyrics/search` 接收 `{"title":"...","artist":"...","durationMs":180000}`；可带 `album`、`providerId` 缩小到对应版本，只返回标题、歌手、时长及已提供专辑匹配的同步歌词。`provider:"netease"` 时优先读取网易云对应歌曲 ID 的同步歌词；`provider:"qqmusic"` 时先根据本机 QQ 曲目 ID 查歌曲 MID，从 QQ 歌词接口读取逐行时间戳，失败才尝试 LRCLIB。`providerId` 指定用户在列表选中的版本。其他来源从 LRCLIB 匹配。结果为 `unverified` 或 `no_matched_version`，找不到匹配版本时不提供冒充的歌词。
 - `POST /api/agent/explain` 接收 `{"expression":"다시","lines":["..."]}`，仅在本机服务配置模型后可用；返回结果标记为「AI 生成，未人工核对」。
+- `POST /api/agent/generate-floor` 按歌词行草稿生成**单层迷你尖塔**（combat→elite→boss）。请求体示例：
+
+```json
+{
+  "expression": "아직",
+  "lines": [
+    {"id": "w2", "songId": "sample-window", "text": "네 목소리는 아직 귀에 남아."},
+    {"id": "b2", "songId": "sample-bus", "text": "아직 집에 도착하지 못했어."}
+  ]
+}
+```
+
+须配置模型环境变量。成功时返回 `{origin, draft, styleWarnings, toolLog}`；`draft.needsHumanReview` 恒为 `true`。结构不合规范时 HTTP 422（`RUN_DRAFT_INVALID`）；模型未配置 503。文风禁词见 `docs/lessons/COPY_STYLE.md`，命中时进入 `styleWarnings`，不单独因此失败。草稿**不会**自动写入离线会话；须人工核对后再用。
 
 ## Mac「音乐」本机桥接
 
