@@ -1,0 +1,255 @@
+{
+  "schemaVersion": 1,
+  "runId": "offline-sample-window-night",
+  "pathTemplate": "p1_roguelike_branch",
+  "branching": true,
+  "title": "离线肉鸽样本 · 窗边的夜",
+  "designNote": "设计评审用：选歌起点 → 一词多义保底线，并可岔出剧情线 / 文化线，汇合到最终挑战。非商业歌词；会话引擎尚未跑 graph。",
+  "expression": "아직",
+  "baseMeaning": "还、仍然（still / not yet）",
+  "learningGoal": "能根据前后句判断「아직」是「仍在持续」还是「尚未发生」",
+  "unverifiedClaims": ["说话人是否在撒娇、关系是否冷战——文本未证实，不得作唯一答案"],
+  "startSongId": "sample-window",
+  "songs": [
+    {
+      "id": "sample-window",
+      "title": "窗边的夜",
+      "artist": "VIBE 原创教学样例",
+      "language": "ko",
+      "version": "sample-v1",
+      "durationMs": 32000,
+      "source": { "kind": "original_demo", "label": "原创教学文本" },
+      "audio": { "available": false, "reason": "未附可授权音源" }
+    },
+    {
+      "id": "sample-bus",
+      "title": "末班车",
+      "artist": "VIBE 原创教学样例",
+      "language": "ko",
+      "version": "sample-v1",
+      "durationMs": 28000,
+      "source": { "kind": "original_demo", "label": "原创教学文本" },
+      "audio": { "available": false, "reason": "未附可授权音源" }
+    },
+    {
+      "id": "sample-letter",
+      "title": "未寄出的信",
+      "artist": "VIBE 原创教学样例",
+      "language": "ko",
+      "version": "sample-v1",
+      "durationMs": 24000,
+      "source": { "kind": "original_demo", "label": "原创教学文本" },
+      "audio": { "available": false, "reason": "未附可授权音源" }
+    }
+  ],
+  "lines": [
+    { "id": "sample-window-1", "songId": "sample-window", "text": "불을 끄지 못한 채 앉아 있어.", "startMs": 1000, "endMs": 4500, "source": { "kind": "original_demo", "label": "原创教学文本" }, "reviewStatus": "original" },
+    { "id": "sample-window-2", "songId": "sample-window", "text": "네 목소리는 아직 귀에 남아.", "startMs": 5000, "endMs": 9000, "source": { "kind": "original_demo", "label": "原创教学文本" }, "reviewStatus": "original" },
+    { "id": "sample-window-3", "songId": "sample-window", "text": "창밖은 이미 조용해졌는데.", "startMs": 9500, "endMs": 13500, "source": { "kind": "original_demo", "label": "原创教学文本" }, "reviewStatus": "original" },
+    { "id": "sample-bus-1", "songId": "sample-bus", "text": "버스는 떠났고 나는 남았어.", "startMs": 1000, "endMs": 4500, "source": { "kind": "original_demo", "label": "原创教学文本" }, "reviewStatus": "original" },
+    { "id": "sample-bus-2", "songId": "sample-bus", "text": "아직 집에 도착하지 못했어.", "startMs": 5000, "endMs": 9000, "source": { "kind": "original_demo", "label": "原创教学文本" }, "reviewStatus": "original" },
+    { "id": "sample-bus-3", "songId": "sample-bus", "text": "다음 차는 언제 올까.", "startMs": 9500, "endMs": 12500, "source": { "kind": "original_demo", "label": "原创教学文本" }, "reviewStatus": "original" },
+    { "id": "sample-letter-1", "songId": "sample-letter", "text": "편지를 썼지만 보내지 않았어.", "startMs": 1000, "endMs": 4500, "source": { "kind": "original_demo", "label": "原创教学文本" }, "reviewStatus": "original" },
+    { "id": "sample-letter-2", "songId": "sample-letter", "text": "내 마음은 아직 정리되지 않았으니까.", "startMs": 5000, "endMs": 9500, "source": { "kind": "original_demo", "label": "原创教学文本" }, "reviewStatus": "original" }
+  ],
+  "route": ["n-start-context", "n-contrast", "n-final"],
+  "graph": {
+    "startNodeId": "n-start-context",
+    "nodes": ["n-start-context", "n-contrast", "n-galgame", "n-culture", "n-final"],
+    "edges": [
+      {
+        "from": "n-start-context",
+        "to": "n-contrast",
+        "when": "on_correct",
+        "label": "保底线 · 一词多义对照"
+      },
+      {
+        "from": "n-start-context",
+        "to": "n-galgame",
+        "when": "player_choice",
+        "label": "剧情线 · Galgame"
+      },
+      {
+        "from": "n-start-context",
+        "to": "n-culture",
+        "when": "player_choice",
+        "label": "文化线 · 释义探索",
+        "rewardCardIds": ["card-time-contrast"]
+      },
+      {
+        "from": "n-contrast",
+        "to": "n-final",
+        "when": "on_correct",
+        "label": "汇合 · 最终挑战"
+      },
+      {
+        "from": "n-galgame",
+        "to": "n-final",
+        "when": "player_choice",
+        "label": "汇合 · 最终挑战"
+      },
+      {
+        "from": "n-culture",
+        "to": "n-final",
+        "when": "player_choice",
+        "label": "汇合 · 最终挑战"
+      }
+    ]
+  },
+  "nodes": [
+    {
+      "id": "n-start-context",
+      "mapNode": "context",
+      "personaId": "polysemy_tutor",
+      "type": "context_choice",
+      "layer": 1,
+      "title": "语境关 · 声音还在",
+      "morphologyNote": "本关依据连续字符命中「아직」，未做韩语词形分析；命中≠义项已变。",
+      "target": {
+        "expression": "아직",
+        "skill": "语境理解",
+        "evidenceLineIds": ["sample-window-2", "sample-window-3"],
+        "prerequisites": ["知道 아직 的基本义：还、仍然 / 尚未"]
+      },
+      "contrastAxis": "「아직」是状态仍在持续（声音残留），对比窗外「已经」安静",
+      "prompt": "「네 목소리는 아직 귀에 남아」里的「아직」最贴切的是？",
+      "options": [
+        "声音仍留在耳边（持续）",
+        "声音还没开始出现（尚未发生）",
+        "窗外其实更吵了"
+      ],
+      "correctIndex": 0,
+      "explanation": "「남아」是留下；结合下一句窗外已经安静，这里的「아직」表示声音残留仍在持续，不是「还没发生」。",
+      "remedial": "并排看「아직 귀에 남아」和「이미 조용해졌는데」：一个还在，一个已经。",
+      "cardIds": []
+    },
+    {
+      "id": "n-contrast",
+      "mapNode": "context",
+      "personaId": "polysemy_tutor",
+      "type": "context_choice",
+      "layer": 2,
+      "title": "对照关 · 持续 vs 尚未",
+      "morphologyNote": "本关依据连续字符命中「아직」，未做韩语词形分析；命中≠义项已变。",
+      "target": {
+        "expression": "아직",
+        "skill": "跨语境对照",
+        "evidenceLineIds": ["sample-window-2", "sample-bus-2"],
+        "prerequisites": ["完成起点语境关"]
+      },
+      "contrastAxis": "持续残留（声音还在）vs 尚未完成（还没到家）",
+      "prompt": "比较两句「아직」：窗边「목소리가 아직 남아」和末班车「아직 집에 도착하지 못했어」差在哪里？",
+      "options": [
+        "前者强调状态仍在；后者强调目标尚未达成",
+        "两句都只表示「永远不会发生」",
+        "两句都与「已经完成」同义"
+      ],
+      "correctIndex": 0,
+      "explanation": "窗边句是残留仍在；末班车句是否定完成（못했어）+ 아직 = 还没到家。",
+      "remedial": "问自己：다시/이미 对比时，아직 后面的动词是「留下」还是「到达」？",
+      "cardIds": []
+    },
+    {
+      "id": "n-galgame",
+      "mapNode": "galgame",
+      "personaId": "story_npc",
+      "type": "dialogue_choice",
+      "layer": 2,
+      "title": "剧情线 · 站台对话",
+      "speaker": "朋友",
+      "line": "末班车走了。你还要在这儿等吗？",
+      "choices": [
+        {
+          "reply": "嗯……我还没到家呢，再等一班吧。",
+          "hint": "呼应「尚未到达」义",
+          "nextNodeId": "n-final"
+        },
+        {
+          "reply": "你的声音好像还在我耳朵里。",
+          "hint": "呼应「仍在持续」义",
+          "nextNodeId": "n-final"
+        },
+        {
+          "reply": "算了，今天什么都不想了。",
+          "hint": "不考察对错，只推动剧情",
+          "nextNodeId": "n-final"
+        }
+      ],
+      "note": "P1：有限选项；开放输入默认不自动判分。本样本三选项均可汇合到最终挑战。"
+    },
+    {
+      "id": "n-culture",
+      "mapNode": "culture",
+      "personaId": "culture_guide",
+      "type": "culture_explore",
+      "layer": 2,
+      "title": "文化线 · 时间词对照",
+      "explorationPrompt": "同一首歌里「아직」和「이미」如何把「还在」与「已经」对照起来？请只根据所给两句回答，不要外加粉丝梗。",
+      "optionalBackground": "教学提示：韩语里常用 아직/이미 对举；是否带情绪要看全句，不能单凭一个词断定撒娇或冷战。",
+      "relatedLineIds": ["sample-window-2", "sample-window-3"],
+      "cardIds": ["card-time-contrast"],
+      "note": "禁止 correctIndex；探索关 + 可捡卡片。"
+    },
+    {
+      "id": "n-final",
+      "mapNode": "final_challenge",
+      "personaId": "polysemy_tutor",
+      "type": "context_choice",
+      "layer": 3,
+      "title": "最终挑战 · 未寄出的信",
+      "transfer": true,
+      "morphologyNote": "本关依据连续字符命中「아직」，未做韩语词形分析；命中≠义项已变。",
+      "target": {
+        "expression": "아직",
+        "skill": "语境迁移",
+        "evidenceLineIds": ["sample-letter-2"],
+        "prerequisites": ["走过任一支线并理解持续/尚未之分"]
+      },
+      "prompt": "新句「내 마음은 아직 정리되지 않았으니까」里，「아직」更接近？",
+      "options": [
+        "心情整理这件事尚未完成",
+        "心情已经彻底整理好了",
+        "这句话在说公交车已经到站"
+      ],
+      "correctIndex": 0,
+      "explanation": "「정리되지 않았으니까」是否定完成；아직 = 还没整理好。不必推断写信人性格。",
+      "remedial": "找到被否定的动词「정리되다」，再看 아직 修饰的是「尚未完成」。",
+      "cardIds": []
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-time-contrast",
+      "personaId": "culture_guide",
+      "title": "학습 카드 · 아직 / 이미",
+      "body": "在本样本里：아직 ≈ 还（持续或尚未）；이미 ≈ 已经。二者常对举，但是否「撒娇」不能单凭单词断定。",
+      "relatedLineIds": ["sample-window-2", "sample-window-3"],
+      "kind": "culture_trivia",
+      "reviewStatus": "unverified",
+      "quizEligible": false
+    }
+  ],
+  "layoutHint": {
+    "columns": [
+      { "layer": 0, "label": "起点歌", "nodeIds": ["__start__"] },
+      { "layer": 1, "label": "第 1 关", "nodeIds": ["n-start-context"] },
+      { "layer": 2, "label": "分支", "nodeIds": ["n-contrast", "n-galgame", "n-culture"] },
+      { "layer": 3, "label": "汇合", "nodeIds": ["n-final"] }
+    ]
+  },
+  "provenance": {
+    "generator": "design_sample",
+    "status": "original",
+    "sourceLineIds": [
+      "sample-window-1",
+      "sample-window-2",
+      "sample-window-3",
+      "sample-bus-1",
+      "sample-bus-2",
+      "sample-bus-3",
+      "sample-letter-1",
+      "sample-letter-2"
+    ]
+  },
+  "needsHumanReview": false
+}
