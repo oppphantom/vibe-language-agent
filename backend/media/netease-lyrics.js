@@ -1,9 +1,11 @@
 'use strict';
 const {search}=require('./netease-catalog');
 const {parseSyncedLrc}=require('./lyrics');
+const {normalizeLanguage}=require('../../shared/languages');
 const normalize=s=>String(s||'').normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
 async function findNeteaseLyrics(input,fetchImpl=fetch){
   const {title,artist,durationMs}=input;
+  const language=normalizeLanguage(input.language);
   if(typeof title!=='string'||!title.trim()||title.length>150||typeof artist!=='string'||!artist.trim()||artist.length>150||
     !Number.isInteger(durationMs)||durationMs<1000||durationMs>3600000)throw Error('歌曲信息无效');
   const tracks=await search(`${artist} ${title}`.slice(0,80),fetchImpl);
@@ -22,6 +24,6 @@ async function findNeteaseLyrics(input,fetchImpl=fetch){
   const songId=`netease-${selected.id}`;
   const lines=parseSyncedLrc(data.lrc?.lyric,songId,selected.id,'netease').filter(line=>!/^(作词|作曲|编曲|录音|混音|母带)\s*[:：]/.test(line.text));
   if(!lines.length)return {status:'no_matched_version',source:'网易云音乐',lines:[]};
-  return {status:'unverified',source:'网易云音乐',song:{id:songId,title:selected.title,artist:selected.artist,language:'ko',version:'网易云歌曲 ID '+selected.id,durationMs:selected.durationMs,source:{kind:'netease',id:selected.id}},lines};
+  return {status:'unverified',source:'网易云音乐',song:{id:songId,title:selected.title,artist:selected.artist,language,version:'网易云歌曲 ID '+selected.id,durationMs:selected.durationMs,source:{kind:'netease',id:selected.id}},lines};
 }
 module.exports={findNeteaseLyrics};

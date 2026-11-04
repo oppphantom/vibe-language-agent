@@ -27,7 +27,7 @@
   <header>
     <div class="top-meta">
       <div class="eyebrow">VIBE RECORDS / LANGUAGE AGENT</div>
-      <div class="hero-strip" aria-hidden="true"><span>SIDE A · TRACK 02 · 한 · KO</span></div>
+      <div class="hero-strip" aria-hidden="true"><span>SIDE A · 한 · 日 · 中 · KO / JA / ZH</span></div>
     </div>
     <h1>再给我一首歌的时间</h1>
     <p>在 macOS 或 Windows 连接 QQ 音乐、网易云音乐，按句听原声；Mac「音乐」还支持资料库检索与 Discover 语境比较。</p>
@@ -36,8 +36,18 @@
   <nav aria-label="模式">
     <button id="musicTab" class="active" type="button">我的音乐资料库</button>
     <button id="demoTab" type="button">离线教学演示</button>
+    <button id="studyTab" type="button">歌曲学习地图</button>
     <button id="liveTab" type="button">本地音频与歌词</button>
   </nav>
+  <div class="language-switch">
+    <label for="learningLanguage">学习语言</label>
+    <select id="learningLanguage">
+      <option value="ko">韩语</option>
+      <option value="ja">日语</option>
+      <option value="zh">中文</option>
+    </select>
+    <span id="languageStatus">课程、歌词与解释共用当前语言</span>
+  </div>
 
   <section id="music">
     <div class="section-head"><span>01 / 连接音乐软件</span><span class="tag">保留原声 · 本机播放</span></div>
@@ -94,13 +104,19 @@
       </div>
       <p id="musicPlayback" role="status">选择一句歌词开始播放。</p>
       <div id="musicLyrics" class="lyric-list"></div>
+      <div id="musicLearning" class="agent-box">
+        <h2>从这首歌进入语境学习</h2>
+      <p>AI 会从当前同步歌词中选择一个表达，生成听辨、语境、剧情/文化岔路、营火与迁移挑战组成的探索小地图。生成结果会标明未人工核对。</p>
+        <button id="planSong" type="button" disabled>生成歌曲学习地图</button>
+        <p id="planStatus" role="status"></p>
+      </div>
     </div>
 
     <div class="agent-box">
       <h2>Discover · 跨歌曲找语境</h2>
       <p>检索当前歌手资料库里重复出现的表达，保留上下句与逐句原声。这里只做文字命中；语义差异需要继续核对。</p>
       <form id="discoverForm">
-        <label>韩语表达<input id="discoverQuery" value="다시" maxlength="40" required></label>
+        <label>目标语言歌词表达<input id="discoverQuery" value="다시" maxlength="40" required></label>
         <button type="submit">寻找其他歌曲中的语境</button>
       </form>
       <p id="discoverStatus" role="status"></p>
@@ -111,20 +127,84 @@
   </section>
 
   <section id="demo" hidden>
-    <div class="section-head"><span>01 / 选择材料</span><span class="tag">原创教学样例 · 无音源</span></div>
+    <div class="section-head"><span>01 / 选择材料</span><span class="tag">韩中日原创教学样例 · 无音源</span></div>
     <div id="songs" class="song-grid"></div>
+  </section>
+
+  <section id="study" hidden>
+    <div class="study-topbar">
+      <div class="controls">
+        <button id="studyBack" type="button">返回音乐界面</button>
+        <span id="studyCourseTitle" class="tag">歌曲语境学习</span>
+      </div>
+      <span id="progress"></span>
+    </div>
     <div id="lesson" hidden>
-      <div class="section-head"><span>02 / 语境侦探</span><span id="progress"></span></div>
-      <div class="progress" id="progressBar" role="progressbar" aria-label="学习进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="game-hud" aria-label="游戏状态">
+        <span><b id="gameXp">0</b> 经验</span>
+        <span><b id="gameStreak">0</b> 连击</span>
+        <span><b id="gameCards">0</b> 张知识卡</span>
+      </div>
+      <div class="progress" id="progressBar" role="progressbar" aria-label="探索进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
         <span class="progress__fill" id="progressFill"></span>
       </div>
-      <div id="source" class="source"></div>
-      <div class="question">
-        <h2 id="prompt"></h2>
-        <div id="choices"></div>
-        <p id="feedback" role="status"></p>
-        <button id="retry" hidden type="button">带着提示再试一次</button>
+      <div class="adventure-map-wrap">
+        <svg id="adventureEdges" class="adventure-edges" viewBox="0 0 1000 260" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <ol id="journeyMap" class="adventure-map" aria-label="歌曲语境学习地图"></ol>
       </div>
+      <p id="studyProvenance"></p>
+      <div id="levelStage" class="level-stage">
+        <aside class="persona-card">
+          <span id="personaGlyph" class="persona-glyph" aria-hidden="true">◈</span>
+          <div>
+            <small id="levelType">语境推理</small>
+            <strong id="personaName">语义侦探</strong>
+            <p id="personaTone"></p>
+          </div>
+        </aside>
+        <div class="level-content">
+          <div class="ascii-game">
+            <div class="ascii-screen">
+              <div class="ascii-map-frame">
+                <pre id="asciiMap" tabindex="0" aria-label="ASCII 字符关卡地图"></pre>
+              </div>
+              <div id="asciiLegend" class="ascii-legend"></div>
+            </div>
+            <aside class="room-panel">
+              <small>当前任务</small>
+              <h3 id="roomObjective"></h3>
+              <p id="roomProgress" class="room-progress"></p>
+              <p id="roomPhrase" class="room-phrase" hidden></p>
+              <div class="key-guide" aria-label="操作说明">
+                <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
+                <span>或方向键移动</span>
+              </div>
+              <div class="move-pad" aria-label="触屏移动控制">
+                <button type="button" data-direction="up" aria-label="向上">↑</button>
+                <button type="button" data-direction="left" aria-label="向左">←</button>
+                <button type="button" data-direction="down" aria-label="向下">↓</button>
+                <button type="button" data-direction="right" aria-label="向右">→</button>
+              </div>
+              <p class="key-guide-note">踩到字符自动触发。被噪声精灵碰到会退回一步。</p>
+            </aside>
+          </div>
+          <p id="feedback" class="room-event" role="status"></p>
+          <details class="evidence-drawer">
+            <summary>查看本关歌词与证据</summary>
+            <div id="source" class="source"></div>
+          </details>
+          <div class="room-log-wrap">
+            <div class="section-head"><span>探索记录</span><span>最近发生</span></div>
+            <ol id="roomLog" class="room-log"></ol>
+          </div>
+        </div>
+      </div>
+      <div id="rewardToast" class="reward-toast" hidden></div>
+      <div class="inventory-panel">
+        <div class="section-head"><span>探索行囊</span><span>知识卡会随本轮路线收集</span></div>
+        <div id="gameInventory" class="inventory-grid"><p>还没有收集知识卡。</p></div>
+      </div>
+      <p id="studyPlayback" role="status"></p>
     </div>
   </section>
 
@@ -153,10 +233,16 @@
     <audio id="audio" controls></audio>
     <p id="playStatus" role="status">没有音源时，逐句播放不可用。</p>
     <div id="liveLines"></div>
+    <div id="liveLearning" class="agent-box" hidden>
+      <h2>用这段歌词开始语境学习</h2>
+      <p>AI 会从检索到的同步歌词生成游戏化知识地图。课程未人工核对；本地音频仍由你在当前页面控制。</p>
+      <button id="planLiveSong" type="button">生成探索学习地图</button>
+      <p id="livePlanStatus" role="status"></p>
+    </div>
     <div class="agent-box">
       <h2>模型解释（可选）</h2>
       <p>由本机服务读取环境变量中的密钥。生成结果会标明未人工核对；服务端未配置时不可用。</p>
-      <input id="expression" placeholder="输入要理解的表达，如 다시" maxlength="40">
+      <input id="expression" placeholder="输入要理解的表达，如 다시 / また / 再见" maxlength="40">
       <button id="explain" type="button">解释当前材料</button>
       <div id="explanation" role="status"></div>
     </div>
@@ -167,7 +253,21 @@
   </footer>
 </main>
 
+<div id="gameModal" class="game-modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="game-modal__card">
+    <button id="modalClose" class="game-modal__close" type="button" aria-label="关闭">×</button>
+    <small id="modalKind" class="game-modal__kind">歌词挑战</small>
+    <h2 id="modalTitle"></h2>
+    <p id="modalPrompt"></p>
+    <div id="modalCard" class="knowledge-card" hidden></div>
+    <div id="modalOptions" class="modal-options"></div>
+    <p id="modalAudioStatus" role="status"></p>
+    <p id="modalFeedback" role="status"></p>
+  </div>
+</div>
+
 <script src="/sky.js" defer></script>
+<script src="/playback-retry.js" defer></script>
 <script src="/app.js" defer></script>
 <script src="/music.js" defer></script>
 <script src="/text-edit.js" defer></script>

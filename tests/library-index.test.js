@@ -3,7 +3,8 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const {library,index,findHits}=require('../backend/media/library-index');
 test('library filters the selected artist and keeps duration in milliseconds',async()=>{
   const macBridge={libraryTracks:async()=>[{title:'A',artist:'RIIZE',duration:178.013},{title:'B',artist:'Other',duration:175}]};
-  assert.deepEqual(await library('RIIZE',{macBridge}),[{title:'A',artist:'RIIZE',durationMs:178013}]);
+  assert.deepEqual(await library('RIIZE',{macBridge}),[{title:'A',artist:'RIIZE',language:'ko',durationMs:178013}]);
+  assert.equal((await library('RIIZE',{macBridge,language:'ja'}))[0].language,'ja');
 });
 test('discover returns evidence from two songs without inventing semantic differences',async()=>{
   const tracks=[{title:'A',artist:'RIIZE',durationMs:100000},{title:'B',artist:'RIIZE',durationMs:100000}];

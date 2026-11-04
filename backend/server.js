@@ -2,8 +2,10 @@
 const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
-const {begin,get,node,answer}=require('./agent/session');
+const {begin,get,node,answer,move,respond,restart}=require('./agent/session');
 const model=require('./agent/model');
+const planner=require('./agent/planner');
+const {loadEnv}=require('./env');
 const {findLyrics}=require('./media/lyrics');
 const {findNeteaseLyrics}=require('./media/netease-lyrics');
 const neteaseCatalog=require('./media/netease-catalog');
@@ -13,13 +15,15 @@ const qqPlaylist=require('./media/qq-playlist');
 const {findQqLyrics}=require('./media/qq-lyrics');
 const libraryIndex=require('./media/library-index');
 const {songs,lines}=require('../content/fixtures/demo');
-const {validateLine}=require('../shared/contract');
+const {validateLine,validateSong}=require('../shared/contract');
+const {normalizeLanguage,publicLanguages}=require('../shared/languages');
 const mac=process.platform==='darwin'?require('./media/mac-music'):null;
 const systemPlayer=process.platform==='darwin'?require('./media/system-player').createBridge():
   process.platform==='win32'?require('./media/windows-player').createBridge():null;
 const root=path.join(__dirname,'..');
-const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/text-edit.js':'frontend/text-edit.js','/style.css':'frontend/style.css'};
+const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/playback-retry.js':'frontend/playback-retry.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/text-edit.js':'frontend/text-edit.js','/style.css':'frontend/style.css'};
 const mime={'html':'text/html; charset=utf-8','js':'text/javascript; charset=utf-8','css':'text/css; charset=utf-8'};
+const publicSongs=songs.map(validateSong);
 function send(res,status,data,type='application/json; charset=utf-8'){
   res.writeHead(status,{'Content-Type':type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
   res.end(type.startsWith('application/json')?JSON.stringify(data):data);
@@ -121,18 +125,35 @@ function createServer(){return http.createServer(async(req,res)=>{
       const name=assets[url.pathname],ext=name.split('.').pop();return send(res,200,fs.readFileSync(path.join(root,name)),mime[ext]);
     }
     if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:'offline_demo',platform:process.platform,modelConfigured:model.configured()});
-    if(req.method==='GET'&&url.pathname==='/api/songs')return send(res,200,{songs,lines,provenance:'原创教学样例；非实时 Agent 生成'});
+    if(req.method==='GET'&&url.pathname==='/api/songs')return send(res,200,{
+      songs:publicSongs,lines,languages:publicLanguages(),provenance:'原创教学样例；非实时 Agent 生成'
+    });
     if(req.method==='GET'&&url.pathname==='/api/playback/capabilities')return send(res,200,{offline:capabilities('offline'),localAudio:capabilities('local_audio'),macMusic:capabilities('mac_music'),systemPlayer:capabilities('system_player')});
     if(req.method==='GET'&&url.pathname.startsWith('/api/sessions/')){
       const id=url.pathname.split('/')[3];
       return send(res,200,url.pathname.endsWith('/node')?node(id):get(id));
     }
-    if(req.method==='POST'&&url.pathname==='/api/sessions')return send(res,201,begin((await read(req)).songId));
+    if(req.method==='POST'&&url.pathname==='/api/sessions')return send(res,201,begin(await read(req)));
+    const restartMatch=url.pathname.match(/^\/api\/sessions\/([^/]+)\/restart$/);
+    if(req.method==='POST'&&restartMatch)return send(res,201,await restart(decodeURIComponent(restartMatch[1])));
     if(req.method==='POST'&&url.pathname==='/api/answers')return send(res,200,answer(await read(req)));
+    if(req.method==='POST'&&url.pathname==='/api/moves')return send(res,200,move(await read(req)));
+    if(req.method==='POST'&&url.pathname==='/api/respond')return send(res,200,respond(await read(req)));
     if(req.method==='POST'&&url.pathname==='/api/lyrics/search'){
       const input=await read(req);
       if(!Number.isInteger(input.durationMs)||input.durationMs<1000||input.durationMs>3600000)throw Error('歌曲时长无效');
-      const result=input.provider==='netease'?await findNeteaseLyrics(input):input.provider==='qqmusic'?await findQqLyrics(input):await findLyrics(input.title,input.artist,input.durationMs);
+      const language=normalizeLanguage(input.language);
+      const normalizedInput={...input,language};
+      const result=input.provider==='netease'?await findNeteaseLyrics(normalizedInput):input.provider==='qqmusic'?await findQqLyrics(normalizedInput):
+        await findLyrics(input.title,input.artist,input.durationMs,undefined,language);
+      if(result.song){
+        const playback={};
+        for(const key of ['album','provider','providerId','songmid','playlistId','trackIndex','playbackVerified']) {
+          if(input[key]!==undefined)playback[key]=input[key];
+        }
+        result.song={...result.song,...playback};
+        result.song={...result.song,...validateSong(result.song)};
+      }
       for(const line of result.lines)validateLine(line);
       return send(res,200,result);
     }
@@ -155,6 +176,7 @@ function createServer(){return http.createServer(async(req,res)=>{
       const playlist=await qqPlaylist.importPublicPlaylist(url.searchParams.get('value')||'');
       return send(res,200,{playlist,source:'QQ 音乐公开分享歌单',reviewStatus:'unverified'});
     }
+    if(req.method==='POST'&&url.pathname==='/api/agent/plan')return send(res,201,await planner.plan(await read(req,400000)));
     if(req.method==='POST'&&url.pathname==='/api/agent/explain')return send(res,200,await model.explain(await read(req)));
     if(req.method==='GET'&&url.pathname==='/api/mac/status'){
       if(!mac)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
@@ -204,11 +226,12 @@ function createServer(){return http.createServer(async(req,res)=>{
     if(req.method==='GET'&&url.pathname==='/api/mac/library'){
       if(!mac)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
       const artist=url.searchParams.get('artist')||'';
-      return send(res,200,{artist,songs:await libraryIndex.library(artist,{macBridge:mac})});
+      const language=normalizeLanguage(url.searchParams.get('language')||undefined);
+      return send(res,200,{artist,language,songs:await libraryIndex.library(artist,{macBridge:mac,language})});
     }
     if(req.method==='POST'&&url.pathname==='/api/mac/discover'){
       if(!mac)return send(res,503,{error:{code:'PLATFORM_UNAVAILABLE',message:'仅 macOS 可用'}});
-      const input=await read(req),data=await libraryIndex.index(input.artist,{macBridge:mac});
+      const input=await read(req),language=normalizeLanguage(input.language),data=await libraryIndex.index(input.artist,{macBridge:mac,language});
       return send(res,200,libraryIndex.findHits(data,input.expression));
     }
     if(req.method==='POST'&&url.pathname==='/api/mac/play-line'){
@@ -222,9 +245,15 @@ function createServer(){return http.createServer(async(req,res)=>{
     send(res,404,{error:{code:'NOT_FOUND',message:'接口不存在'}});
   }catch(error){
     const code=error.code||'REQUEST_FAILED';
-    const status=code==='NOT_FOUND'?404:code==='MODEL_UNAVAILABLE'?503:code==='MODEL_UPSTREAM'?502:code==='ALREADY_COMPLETED'?409:400;
+    const status=code==='NOT_FOUND'?404:code==='MODEL_UNAVAILABLE'?503:code==='MODEL_UPSTREAM'?502:
+      ['MODEL_CONFIG','COURSE_INVALID'].includes(code)?500:code==='MODEL_OUTPUT'?502:
+      ['ALREADY_COMPLETED','STALE_NODE','RUN_INCOMPLETE'].includes(code)?409:400;
     send(res,status,{error:{code,message:String(error.message||'请求失败').slice(0,250)}});
   }
 });}
-if(require.main===module){const port=Number(process.env.PORT||8767);createServer().listen(port,'127.0.0.1',()=>console.log(`VIBE Agent: http://127.0.0.1:${port}/`));}
+if(require.main===module){
+  loadEnv(path.join(root,'.env'));
+  const port=Number(process.env.PORT||8767);
+  createServer().listen(port,'127.0.0.1',()=>console.log(`VIBE Agent: http://127.0.0.1:${port}/`));
+}
 module.exports={createServer,capabilities};

@@ -1,4 +1,5 @@
 'use strict';
+const {normalizeLanguage}=require('../../shared/languages');
 const normalize=s=>String(s||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
 function parseSyncedLrc(lrc,songId,sourceId,kind='lrclib'){
   const raw=String(lrc||'').split(/\r?\n/).flatMap(row=>{
@@ -8,8 +9,9 @@ function parseSyncedLrc(lrc,songId,sourceId,kind='lrclib'){
   return raw.map((x,i)=>({id:`${songId}-${i+1}`,songId,text:x.text,startMs:x.startMs,endMs:raw[i+1]?.startMs>x.startMs?raw[i+1].startMs:null,
     source:{kind,id:sourceId},reviewStatus:'unverified'}));
 }
-async function findLyrics(title,artist,durationMs,fetchImpl=fetch){
+async function findLyrics(title,artist,durationMs,fetchImpl=fetch,language='ko'){
   if(!title||!artist||title.length>150||artist.length>150)throw Error('歌名或歌手无效');
+  const languageCode=normalizeLanguage(language);
   const url=new URL('https://lrclib.net/api/search');url.searchParams.set('track_name',title);url.searchParams.set('artist_name',artist);
   let response;
   for(let attempt=0;attempt<2;attempt++){
@@ -21,6 +23,6 @@ async function findLyrics(title,artist,durationMs,fetchImpl=fetch){
   const matches=(await response.json()).filter(x=>normalize(x.trackName)===normalize(title)&&normalize(x.artistName).includes(normalize(artist))&&x.syncedLyrics);
   const item=matches.sort((a,b)=>Math.abs(a.duration*1000-durationMs)-Math.abs(b.duration*1000-durationMs))[0];
   if(!item||Math.abs(item.duration*1000-durationMs)>8000)return {status:'no_matched_version',source:'LRCLIB',lines:[]};
-  const songId=`lrclib-${item.id}`;return {status:'unverified',source:'LRCLIB',song:{id:songId,title:item.trackName,artist:item.artistName,language:'ko',version:item.albumName||'unknown',durationMs:Math.round(item.duration*1000),source:{kind:'lrclib',id:item.id}},lines:parseSyncedLrc(item.syncedLyrics,songId,item.id)};
+  const songId=`lrclib-${item.id}`;return {status:'unverified',source:'LRCLIB',song:{id:songId,title:item.trackName,artist:item.artistName,language:languageCode,version:item.albumName||'unknown',durationMs:Math.round(item.duration*1000),source:{kind:'lrclib',id:item.id}},lines:parseSyncedLrc(item.syncedLyrics,songId,item.id)};
 }
 module.exports={parseSyncedLrc,findLyrics};

@@ -1,12 +1,20 @@
 'use strict';
 (() => {
   const $=id=>document.getElementById(id);
-  const state={song:null,lines:[],connected:false,provider:'apple',platform:'unknown',qqSongs:[],qqSource:'本机 QQ 音乐',neteasePlaylists:[],pendingSong:null,connecting:false};
+  const state={song:null,lines:[],connected:false,provider:'apple',platform:'unknown',modelConfigured:false,qqSongs:[],qqSource:'本机 QQ 音乐',neteasePlaylists:[],pendingSong:null,connecting:false};
   let pendingCheckTimer=null,pendingCheckAttempts=0;
   const providerName={apple:'Mac「音乐」',qqmusic:'QQ 音乐',netease:'网易云音乐'};
+  const languageName={ko:'韩语',ja:'日语',zh:'中文'};
   const normal=s=>String(s||'').normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
   const offsetKey=song=>'vibe-music-offset:'+(song.provider||'apple')+':'+song.artist+':'+song.title;
   const make=(tag,value,className)=>{const el=document.createElement(tag);el.textContent=value;if(className)el.className=className;return el};
+  const learningLanguage=()=>$('learningLanguage')?.value||'ko';
+  const languageClass=code=>`language-text language-${['ko','ja','zh'].includes(code)?code:'ko'}`;
+  document.addEventListener('learning-language-change',()=>{
+    if(!state.song||state.song.language===learningLanguage())return;
+    state.song=null;state.lines=[];$('musicStudy').hidden=true;$('systemControls').hidden=true;
+    $('musicStatus').textContent='学习语言已切换，请按新语言重新选择歌曲并检索歌词。';
+  });
   const time=ms=>{const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
   async function request(path,method='GET',body){
     const response=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
@@ -139,7 +147,7 @@
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.pendingSong)connectMusic()});
   $('loadLibrary').onclick=async()=>{
     const artist=$('libraryArtist').value.trim();$('musicSongs').replaceChildren();$('musicStatus').textContent='正在读取 '+artist+' 的资料库歌曲…';
-    try{const data=await request('/api/mac/library?'+new URLSearchParams({artist}));
+    try{const data=await request('/api/mac/library?'+new URLSearchParams({artist,language:learningLanguage()}));
       $('musicStatus').textContent=`资料库找到 ${data.songs.length} 首 ${artist} 的歌曲。选择一首查看同步歌词。`;
       for(const song of data.songs){const card=document.createElement('article');card.className='song-card';
         song.provider='apple';card.append(make('small','MAC MUSIC LIBRARY'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)));
@@ -209,7 +217,10 @@
     if(playlist)showNeteaseResults(playlist.songs,`歌单「${playlist.name}」`);
   };
   async function selectSong(song){
-    state.song=song;state.lines=[];$('musicStudy').hidden=false;$('musicSongTitle').textContent=song.title+' · '+song.artist;
+    song.language=song.language||learningLanguage();song.provider=song.provider||state.provider;
+    state.song=song;state.lines=[];$('musicStudy').hidden=false;
+    $('musicLearning').hidden=true;$('planStatus').textContent='';
+    $('musicSongTitle').textContent=`${song.title} · ${song.artist} · ${languageName[song.language]||'韩语'}`;
     $('systemControls').hidden=!song.provider||song.provider==='apple'||!song.playbackVerified;
     $('musicPlayback').textContent='选择一句歌词开始播放。';
     $('musicOffset').value=localStorage.getItem(offsetKey(song))||'0';
@@ -218,16 +229,37 @@
     try{const data=await request('/api/lyrics/search','POST',song);
       if(state.song!==song||state.provider!==song.provider)return;
       if(data.status!=='unverified'){$('musicSource').textContent='没有找到与资料库版本时长匹配的同步歌词。';return}
-      state.lines=data.lines;if(song.provider==='netease'&&data.song?.source?.id)song.providerId=String(data.song.source.id);
+      state.lines=data.lines;
+      if(data.song){
+        song={...song,...data.song,language:song.language,provider:song.provider||data.song.provider};
+        state.song=song;
+      }
+      if(song.provider==='netease'&&data.song?.source?.id)song.providerId=String(data.song.source.id);
       if(song.provider==='netease'&&song.playbackVerified)showCurrentSong(song);
       $('musicSource').textContent=`来源 ${data.source} · ${data.lines.length} 行 · 未人工核对。${song.provider&&song.provider!=='apple'&&!song.playbackVerified?`当前仅预览歌词；请先在${providerName[song.provider]}客户端播放同一版本，再连接当前音乐来源。`:'先检查歌词与音频的时间偏移。'}`;
       for(const line of data.lines){const button=document.createElement('button');button.type='button';button.className='lyric-row';
-        button.append(make('span',time(line.startMs)),make('strong',line.text));
+        button.append(make('span',time(line.startMs)),make('strong',line.text,languageClass(song.language)));
         button.disabled=line.endMs===null||(song.provider&&song.provider!=='apple'&&!song.playbackVerified);
         button.title=line.endMs===null?'缺少句末时间，不能自动暂停':song.provider&&song.provider!=='apple'&&!song.playbackVerified?'当前仅预览歌词；连接正在播放的同一版本后可逐句播放':`在${providerName[song.provider||'apple']}播放这一句`;
         button.onclick=()=>play(song,line);$('musicLyrics').append(button)}
+      $('musicLearning').hidden=false;
+      if(!state.modelConfigured)$('planStatus').textContent='模型未配置：仍然可以播放和查看歌词，但不能生成真实歌曲课程。';
     }catch(error){if(state.song===song)$('musicSource').textContent='同步歌词检索失败：'+error.message}
   }
+  $('planSong').onclick=async()=>{
+    const song=state.song,lines=state.lines;
+    if(!song||!lines.length){$('planStatus').textContent='请先载入同步歌词。';return}
+    const button=$('planSong');button.disabled=true;
+    $('planStatus').textContent='AI 正在分析歌词、选取表达并检查探索关卡，可能需要几十秒…';
+    try{
+      const plan=await request('/api/agent/plan','POST',{song,lines,language:song.language});
+      if(state.song!==song||state.lines!==lines){$('planStatus').textContent='歌曲或歌词已切换，本次生成结果没有打开。';return}
+      $('planStatus').textContent=`${plan.provenance}；正在打开「${plan.title}」。`;
+      await window.vibeStudy.startCourse(plan.courseId);
+    }catch(error){
+      $('planStatus').textContent='课程生成失败：'+error.message;
+    }finally{button.disabled=!state.modelConfigured}
+  };
   $('musicOffset').onchange=()=>{if(state.song)localStorage.setItem(offsetKey(state.song),$('musicOffset').value)};
   async function systemControl(action){
     const song=state.song;if(!song||song.provider==='apple')return;
@@ -266,23 +298,30 @@
     try{const result=await request(song.provider&&song.provider!=='apple'?'/api/player/play-line':'/api/mac/play-line','POST',{source:song.provider,title:song.title,artist:song.artist,album:song.album||'',durationMs:song.durationMs,startMs,endMs});
       if(!result.ok)throw Error(result.reason==='not_in_library'?'歌曲不在「音乐」资料库':result.reason||'播放未成功');
       output.textContent=`已定位 ${song.title} · ${time(startMs)}，预计在 ${time(endMs)} 自动暂停。`;
-    }catch(error){output.textContent='播放失败：'+error.message}
+      return true;
+    }catch(error){output.textContent='播放失败：'+error.message;return false}
   }
+  window.vibeMusic={playEvidence:(song,line)=>play(song,line,'studyPlayback')};
   $('discoverForm').onsubmit=async event=>{
     event.preventDefault();const artist=$('libraryArtist').value.trim(),expression=$('discoverQuery').value.trim();
     $('discoverResults').replaceChildren();$('discoverStatus').textContent=`正在检索 ${artist} 资料库中的歌词，首次建立索引可能需要一些时间…`;
-    try{const data=await request('/api/mac/discover','POST',{artist,expression});
+    try{const data=await request('/api/mac/discover','POST',{artist,expression,language:learningLanguage()});
       $('discoverStatus').textContent=`已匹配 ${data.indexed}/${data.requested} 首歌词，${data.songCount} 首歌含有「${expression}」，共 ${data.hits.length} 处。${data.matchMethod}${data.sourceFailures?'；'+data.sourceFailures+' 首来源失败':''}`;
       for(const hit of data.hits){const card=document.createElement('article');card.className='context-card';
         card.append(make('small',hit.song.title+' · '+hit.song.artist+' · '+time(hit.line.startMs)),
-          make('p','上一句　'+(hit.before||'—'),'context'),make('p',hit.line.text,'korean'),make('p','下一句　'+(hit.after||'—'),'context'));
+          make('p','上一句　'+(hit.before||'—'),'context'),make('p',hit.line.text,languageClass(learningLanguage())),make('p','下一句　'+(hit.after||'—'),'context'));
         const button=make('button','▶ 听这一句');button.disabled=hit.line.endMs===null;
         button.onclick=()=>play(hit.song,hit.line,'discoverPlayback');card.append(button);$('discoverResults').append(card)}
       if(!data.hits.length)$('discoverResults').textContent='已索引歌曲里没有找到这一表达；可以换一个词，或检查未匹配的歌词版本。';
     }catch(error){$('discoverStatus').textContent='检索失败：'+error.message}
   };
   (async()=>{
-    try{state.platform=(await request('/api/health')).platform||'unknown'}catch{}
+    try{
+      const health=await request('/api/health');
+      state.platform=health.platform||'unknown';state.modelConfigured=health.modelConfigured===true;
+      $('planSong').disabled=!state.modelConfigured;
+      if(!state.modelConfigured)$('planStatus').textContent='模型未配置：仍然可以播放和查看歌词，但不能生成真实歌曲课程。';
+    }catch{}
     if(state.platform==='win32'){
       $('musicProvider').querySelector('option[value=apple]')?.remove();
       $('musicProvider').value='qqmusic';$('qqLibrary').hidden=true;

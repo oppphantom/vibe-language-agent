@@ -23,8 +23,8 @@ function neteasePath(){return executable([
 function detached(file,args){const child=spawn(file,args,{detached:true,stdio:'ignore',windowsHide:true});child.unref()}
 function sessions(value){if(!value)return [];return Array.isArray(value)?value:[value]}
 
-function createCdp({fetchImpl=fetch,WebSocketImpl=globalThis.WebSocket,wait=sleep,port=9222,getSong=async id=>(await neteaseLibrary.library()).find(song=>song.id===String(id))}={}){
-  async function evaluate(expression,timeoutMs=10000){
+function createCdp({fetchImpl=fetch,WebSocketImpl=globalThis.WebSocket,wait=sleep,port=9222,getSong=async id=>(await neteaseLibrary.library()).find(song=>song.id===String(id)),evaluateImpl}={}){
+  async function evaluateDom(expression,timeoutMs=10000){
     if(typeof WebSocketImpl!=='function')throw Error('Windows 网易云原生控制需要 Node.js 22 或更高版本');
     let pages;try{const response=await fetchImpl(`http://127.0.0.1:${port}/json/list`,{signal:AbortSignal.timeout(2500)});pages=await response.json()}catch{throw Error(`网易云原生控制端口不可用；请用 --remote-debugging-port=${port} 启动 cloudmusic.exe`)}
     const page=pages.find(item=>String(item.url||'').endsWith('/app.html'));
@@ -37,8 +37,23 @@ function createCdp({fetchImpl=fetch,WebSocketImpl=globalThis.WebSocket,wait=slee
       ws.addEventListener('error',()=>finish(reject,Error('无法连接网易云原生控制页面')));
     });
   }
+  const evaluate=evaluateImpl||evaluateDom;
   async function currentTrack(){
-    const item=await evaluate(`(() => {const parse=e=>{try{return JSON.parse(e.getAttribute('data-log')||'{}')}catch{return {}}};const rows=Array.from(document.querySelectorAll('[data-testid=tid_table_viewer_row]'));const row=rows.find(e=>{const b=e.querySelector('button.play');return b&&(/暂停|pause/i.test(b.title||'')||b.classList.contains('pause'))});if(!row)return null;const p=parse(row).params||{};return {id:String(p.s_cid||p.s_songId||''),playing:/暂停|pause/i.test(row.querySelector('button.play')?.title||'')}})()`);
+    const item=await evaluate(`(() => {
+      const parse=e=>{try{return JSON.parse(e.getAttribute('data-log')||'{}')}catch{return {}}};
+      const idOf=e=>{const p=parse(e).params||{};return String(p.s_cid||p.s_songId||'')};
+      const rows=Array.from(document.querySelectorAll('[data-testid=tid_table_viewer_row]'));
+      // 行内播放按钮只在播放中显示“暂停”；底部播放栏在句末暂停后仍保留当前歌曲 ID。
+      let playbar=document.querySelector('[data-testid=tid_playbar_play_btn]'),currentId='';
+      for(let depth=0;playbar&&depth<10&&!currentId;depth++,playbar=playbar.parentElement)currentId=idOf(playbar);
+      const row=currentId?rows.find(e=>idOf(e)===currentId):rows.find(e=>{
+        const b=e.querySelector('button.play');return b&&(/暂停|pause/i.test(b.title||'')||b.classList.contains('pause'))
+      });
+      const id=currentId||(row?idOf(row):'');
+      if(!id)return null;
+      const button=row?.querySelector('button.play');
+      return {id,playing:Boolean(button&&(/暂停|pause/i.test(button.title||'')||button.classList.contains('pause')))};
+    })()`);
     if(!item?.id)return null;
     const song=await getSong(item.id);return song?{...song,playing:item.playing}:{id:item.id,title:'',artist:'',album:'',durationMs:0,provider:'netease',playing:item.playing};
   }
@@ -74,6 +89,7 @@ function createCdp({fetchImpl=fetch,WebSocketImpl=globalThis.WebSocket,wait=slee
 }
 
 function createBridge({runPowerShell,launch=detached,wait=sleep,cdp=createCdp(),resolveQqPath=qqPath,resolveNeteasePath=neteasePath}={}){
+  let playbackQueue=Promise.resolve(),playbackRequest=0;
   async function media(action,provider,options={}){
     if(runPowerShell)return runPowerShell(action,provider,options);
     const args=['-NoProfile','-ExecutionPolicy','Bypass','-File',script,'-Action',action,'-Provider',provider];
@@ -110,10 +126,19 @@ function createBridge({runPowerShell,launch=detached,wait=sleep,cdp=createCdp(),
     return {ok:true,source,trackId:String(song.id)};
   }
   async function playLine(source,start,title,artist,end,identity={}){
-    const current=await status(source);assertTrack(current,source,title,artist,identity);
-    if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||(current.duration&&end>current.duration+2))throw Error('歌词时间超出歌曲范围');
-    if(source==='qqmusic'){await media('play-range',source,{positionMs:start*1000,endPositionMs:end*1000,playerPath:resolveQqPath()});return {ok:true,source,title,position:start,autoPauseAt:end}}
-    return {...await cdp.playRange(start*1000,end*1000),source,title};
+    const request=++playbackRequest;
+    const pending=playbackQueue.then(async()=>{
+      if(request!==playbackRequest)return {ok:false,reason:'superseded'};
+      const current=await status(source);assertTrack(current,source,title,artist,identity);
+      if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end<=start||(current.duration&&end>current.duration+2))throw Error('歌词时间超出歌曲范围');
+      if(source==='qqmusic'){
+        await media('play-range',source,{positionMs:start*1000,endPositionMs:end*1000,playerPath:resolveQqPath()});
+        return {ok:true,source,title,position:start,autoPauseAt:end};
+      }
+      return {...await cdp.playRange(start*1000,end*1000),source,title};
+    });
+    playbackQueue=pending.catch(()=>{});
+    return pending;
   }
   async function control(source,action,title,artist,seconds,identity={}){
     const current=await status(source);assertTrack(current,source,title,artist,identity);
