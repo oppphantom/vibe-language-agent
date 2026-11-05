@@ -108,7 +108,7 @@ Content-Type: application/json
 ## Mac「音乐」本机桥接
 
 - `GET /api/mac/status`：查看当前播放器状态。
-- `GET /api/mac/library?artist=RIIZE&language=ja`：列出本机资料库中匹配歌手的歌曲元信息，并给当前学习语言标记；`language` 省略时为 `ko`。
+- `GET /api/mac/library?artist=RIIZE&language=ja`：列出本机资料库中匹配歌手的歌曲元信息，并给当前学习语言标记；`artist` 留空时列出整个 Mac「音乐」资料库，`language` 省略时为 `ko`。
 - `POST /api/mac/play-line`：例如 `{"title":"Memories","artist":"RIIZE","startMs":5000,"endMs":8000}`。桥接会检查是否定位成功，并安排句末暂停。
 - `POST /api/mac/discover`：例如 `{"artist":"RIIZE","expression":"また","language":"ja"}`。返回文字命中、上下句、索引覆盖情况与来源失败数量；`language` 省略时为 `ko`。表达可来自所选目标语言，但该接口**不**判定词形或语义差异。
 

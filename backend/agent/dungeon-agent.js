@@ -17,6 +17,30 @@ function outputError(message) {
   fail('地下城设计未通过校验：'+message,'MODEL_OUTPUT');
 }
 
+function lyricAliases(lines) {
+  const aliasToId=new Map(),idToAlias=new Map();
+  lines.forEach((line,index)=>{
+    const alias=`L${index+1}`;
+    aliasToId.set(alias,line.id);idToAlias.set(line.id,alias);
+  });
+  return {aliasToId,idToAlias};
+}
+
+function resolveLyricAliases(value,aliasToId) {
+  const resolved=structuredClone(value);
+  const visit=item=>{
+    if(Array.isArray(item)){item.forEach(visit);return}
+    if(!item||typeof item!=='object')return;
+    for(const [key,child] of Object.entries(item)){
+      if(key==='lineId'&&child){
+        if(!aliasToId.has(child))outputError(`歌词编号 ${String(child).slice(0,80)} 不在允许集合中`);
+        item[key]=aliasToId.get(child);
+      }else visit(child);
+    }
+  };
+  visit(resolved);return resolved;
+}
+
 function normalizeOptions(options,index,label) {
   if(!Array.isArray(options)||options.length!==3||options.some(option=>typeof option!=='string'||!option.trim()||option.length>300)){
     outputError(`${label}必须有三个有效选项`);
@@ -174,7 +198,9 @@ function fallbackDungeon(course,lines) {
 }
 
 async function generate(course,{song,lines,completeJsonImpl=completeJson}={}) {
-  const material=lines.map(line=>({id:line.id,text:line.text,startMs:line.startMs,endMs:line.endMs}));
+  const {aliasToId,idToAlias}=lyricAliases(lines);
+  const material=lines.map(line=>({id:idToAlias.get(line.id),text:line.text,startMs:line.startMs,endMs:line.endMs}));
+  const allowedAliases=[...aliasToId.keys()].join('、');
   let correction='';
   let lastError;
   for(let attempt=0;attempt<2;attempt++){
@@ -187,13 +213,13 @@ async function generate(course,{song,lines,completeJsonImpl=completeJson}={}) {
 每关先生成 lesson 教学包，用户完成后才能进入地图考核。lesson 必须包含中文 goal、reason、translation、context、cultureNote，一个真实 lineId，1–8 个 chunks（text、reading、meaning），以及一道三选一 check（prompt、options、correctIndex、explanation）。每个 chunks.text 必须逐字出现在该 lineId 的歌词中；面向零基础学习者，reading 必须能帮助拆读文字，meaning 给出简洁中文。translation 必须是该证据行的完整中文翻译，先教内容不能只复制考题。context 和 cultureNote 只能基于这条歌词及给定知识节点，不编造作品背景或社会文化事实。
 每关必须包含 3–8 个实体，其中至少两个 note/npc 事件并至少一张 card；整套地图三种实体都要出现。note 会让用户回听 lineId 并从三个完整歌词中选出正确句；options[correctIndex] 必须严格等于 lineId 歌词。npc 是情境或词义选择题。card 必须提供 term、reading、meaning、usage、example、lineId。
 final 是固定串词成句：选择一条去除空格后包含 2–24 个字符的歌词，输出 lineId 和一个 1–80 字符的 scatterSeed。系统会把歌词逐字拆分并依据 scatterSeed 不规则散布到地图，不要输出数字编号或顺序提示。
-所有 lineId 必须来自给定歌词。不要输出地图坐标、墙体、正确答案以外的隐藏推理。
+歌词行使用短编号 ${allowedAliases}。所有 lesson、entity、card、final 的 lineId 只能原样使用这些短编号，不能自行改写编号。不要输出地图坐标、墙体、正确答案以外的隐藏推理。
 输出形状：{"title":"...","levels":[{"title":"...","theme":"...","layout":"gallery","personaId":"listening_coach","lesson":{"goal":"...","reason":"...","lineId":"...","translation":"...","context":"...","cultureNote":"...","chunks":[{"text":"...","reading":"...","meaning":"..."}],"check":{"prompt":"...","options":["...","...","..."],"correctIndex":0,"explanation":"..."}},"entities":[{"kind":"note","lineId":"...","label":"...","prompt":"...","options":["...","...","..."],"correctIndex":0,"explanation":"..."},{"kind":"card","card":{"term":"...","reading":"...","meaning":"...","usage":"...","example":"...","lineId":"..."}}]}],"final":{"title":"串词成句","lineId":"...","scatterSeed":"...","lesson":{"goal":"...","reason":"...","lineId":"...","translation":"...","context":"...","cultureNote":"...","chunks":[{"text":"...","reading":"...","meaning":"..."}],"check":{"prompt":"...","options":["...","...","..."],"correctIndex":0,"explanation":"..."}}}}${correction}`,
         user:JSON.stringify({song:{title:song.title,artist:song.artist,language:song.language},targetExpression:course.targetExpression,
           knowledgeNodes:course.nodes.map(node=>({type:node.type,stage:node.stage,title:node.title,explanation:node.explanation,
-            evidenceLineIds:node.evidenceLineIds})),lines:material})
+            evidenceLineIds:node.evidenceLineIds.map(id=>idToAlias.get(id)).filter(Boolean)})),lines:material})
       });
-      return validateDungeon(raw,course,lines);
+      return validateDungeon(resolveLyricAliases(raw,aliasToId),course,lines);
     }catch(error){
       lastError=error;
       correction=`\n上一次输出错误：${String(error.message||'').slice(0,300)}。请修正并重新输出完整 JSON。`;

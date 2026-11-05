@@ -159,13 +159,15 @@
   window.addEventListener('focus',()=>{if(state.pendingSong)connectMusic()});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.pendingSong)connectMusic()});
   $('loadLibrary').onclick=async()=>{
-    const artist=$('libraryArtist').value.trim();$('musicSongs').replaceChildren();$('musicStatus').textContent='正在读取 '+artist+' 的资料库歌曲…';
+    const artist=$('libraryArtist').value.trim(),scope=artist?`${artist} 的`:'全部';$('musicSongs').replaceChildren();$('musicStatus').textContent=`正在读取${scope}资料库歌曲…`;
     try{const data=await request('/api/mac/library?'+new URLSearchParams({artist,language:learningLanguage()}));
-      $('musicStatus').textContent=`资料库找到 ${data.songs.length} 首 ${artist} 的歌曲。选择一首查看同步歌词。`;
+      $('musicStatus').textContent=`资料库找到 ${data.songs.length} 首${artist?' '+artist+' 的':''}歌曲。选择一首查看同步歌词。`;
+      const fragment=document.createDocumentFragment();
       for(const song of data.songs){const card=document.createElement('article');card.className='song-card';
         song.provider='apple';card.append(make('small','MAC MUSIC LIBRARY'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)));
-        const button=make('button','查看歌词与逐句播放');button.onclick=()=>selectSong(song);card.append(button);$('musicSongs').append(card)}
-      if(!data.songs.length)$('musicSongs').textContent='没有找到该歌手的资料库歌曲。请确认歌曲已加入 Mac「音乐」资料库。';
+        const button=make('button','查看歌词与逐句播放');button.onclick=()=>selectSong(song);card.append(button);fragment.append(card)}
+      $('musicSongs').append(fragment);
+      if(!data.songs.length)$('musicSongs').textContent=artist?'没有找到该歌手的资料库歌曲。请确认歌曲已加入 Mac「音乐」资料库。':'资料库中没有可读取的歌曲。';
       updateShelfScroll('musicSongs','musicSongsScroll');
     }catch(error){$('musicStatus').textContent='读取失败：'+error.message}
   };

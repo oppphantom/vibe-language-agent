@@ -139,12 +139,12 @@ async function playLibraryTrack(title, artist){
   if(pauseTimer)clearTimeout(pauseTimer);
   return {ok:true};
 }
-async function libraryTracks(query){
-  if(!query || query.length>80)throw Error('查询无效');
-  const source='on run argv\nset queryText to item 1 of argv\ntell application "Music"\nset matches to search library playlist 1 for queryText only songs\nset output to ""\nrepeat with t in matches\ntry\nset output to output & (name of t as text) & tab & (artist of t as text) & tab & (duration of t as text) & linefeed\nend try\nend repeat\nreturn output\nend tell\nend run';
-  const {stdout}=await runFile('/usr/bin/osascript',['-e',source,query],{timeout:12000,maxBuffer:100000});
+async function libraryTracks(query='',runFileImpl=runFile){
+  if(typeof query!=='string'||query.length>80)throw Error('查询无效');
+  const source='on run argv\nset queryText to item 1 of argv\ntell application "Music"\nif queryText is "" then\nset matches to every track of library playlist 1\nelse\nset matches to search library playlist 1 for queryText only songs\nend if\nset output to ""\nrepeat with t in matches\ntry\nset output to output & (name of t as text) & tab & (artist of t as text) & tab & (duration of t as text) & linefeed\nend try\nend repeat\nreturn output\nend tell\nend run';
+  const {stdout}=await runFileImpl('/usr/bin/osascript',['-e',source,query],{timeout:30000,maxBuffer:5000000});
   const seen=new Set();
-  return stdout.trim().split(/\r?\n/).flatMap(row=>{const [title,artist,duration]=row.split('\t');if(!title||!artist||!Number.isFinite(Number(duration)))return[];const key=`${title}\u0000${artist}\u0000${Math.round(Number(duration))}`;if(seen.has(key))return[];seen.add(key);return[{title,artist,duration:Number(duration)}]}).slice(0,60);
+  return stdout.trim().split(/\r?\n/).flatMap(row=>{const [title,artist,duration]=row.split('\t');if(!title||!artist||!Number.isFinite(Number(duration)))return[];const key=`${title}\u0000${artist}\u0000${Math.round(Number(duration))}`;if(seen.has(key))return[];seen.add(key);return[{title,artist,duration:Number(duration)}]});
 }
 async function openCatalog(url){
   const target=new URL(url);

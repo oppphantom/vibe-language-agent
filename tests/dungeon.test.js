@@ -2,7 +2,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {journey,lines}=require('../content/fixtures/demo');
-const {fallbackDungeon,validateDungeon}=require('../backend/agent/dungeon-agent');
+const {generate,fallbackDungeon,validateDungeon}=require('../backend/agent/dungeon-agent');
 const {createDungeonGame,createRoom,moveRoom,respondRoom,roomView}=require('../backend/agent/dungeon');
 
 const vectors={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
@@ -98,4 +98,26 @@ test('dungeon validator rejects missing content types and missing scatter seed',
   assert.throws(()=>validateDungeon(withoutTeaching,journey,lines),error=>error.code==='MODEL_OUTPUT');
   const fabricatedChunk=structuredClone(valid);fabricatedChunk.levels[0].lesson.chunks[0].text='歌词中不存在的词';
   assert.throws(()=>validateDungeon(fabricatedChunk,journey,lines),error=>error.code==='MODEL_OUTPUT');
+});
+
+test('agent uses short lyric aliases and resolves them back to real line ids',async()=>{
+  const aliases=new Map(lines.map((line,index)=>[line.id,`L${index+1}`]));
+  const aliased=structuredClone(fallbackDungeon(journey,lines));
+  const replace=value=>{
+    if(Array.isArray(value))return value.forEach(replace);
+    if(!value||typeof value!=='object')return;
+    for(const [key,item] of Object.entries(value)){
+      if(key==='lineId'&&item)value[key]=aliases.get(item);
+      else replace(item);
+    }
+  };
+  replace(aliased);
+  let request;
+  const result=await generate(journey,{song:{title:'Demo',artist:'Tester',language:'ko'},lines,
+    completeJsonImpl:async value=>{request=value;return aliased}});
+  assert.match(request.system,/L1/);
+  assert.doesNotMatch(request.user,new RegExp(lines[0].id.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
+  assert.ok(lines.some(line=>line.id===result.levels[0].lesson.lineId));
+  assert.doesNotMatch(result.levels[0].lesson.lineId,/^L\d+$/);
+  assert.ok(lines.some(line=>line.id===result.final.lineId));
 });

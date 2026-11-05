@@ -5,10 +5,10 @@ const normalize=value=>String(value||'').normalize('NFKC').toLocaleLowerCase().r
 const cache=new Map();
 async function library(artist,{macBridge,language='ko'}={}){
   if(!macBridge)throw Error('Mac「音乐」仅在 macOS 可用');
-  if(typeof artist!=='string'||artist.trim().length<2||artist.length>80)throw Error('歌手名称无效');
+  if(typeof artist!=='string'||artist.length>80)throw Error('歌手名称无效');
   const languageCode=normalizeLanguage(language);
-  const tracks=await macBridge.libraryTracks(artist.trim());
-  return tracks.filter(track=>normalize(track.artist)===normalize(artist)).slice(0,30).map(track=>({
+  const wanted=artist.trim(),tracks=await macBridge.libraryTracks(wanted);
+  return tracks.filter(track=>!wanted||normalize(track.artist)===normalize(wanted)).map(track=>({
     title:track.title,artist:track.artist,language:languageCode,durationMs:Math.round(track.duration*1000)
   }));
 }

@@ -6,6 +6,15 @@ test('library filters the selected artist and keeps duration in milliseconds',as
   assert.deepEqual(await library('RIIZE',{macBridge}),[{title:'A',artist:'RIIZE',language:'ko',durationMs:178013}]);
   assert.equal((await library('RIIZE',{macBridge,language:'ja'}))[0].language,'ja');
 });
+test('library can load the whole Mac Music library when artist is blank',async()=>{
+  let received;
+  const macBridge={libraryTracks:async query=>{received=query;return[
+    {title:'A',artist:'RIIZE',duration:178.013},{title:'B',artist:'aespa',duration:175}
+  ]}};
+  const result=await library('',{macBridge});
+  assert.equal(received,'');
+  assert.deepEqual(result.map(track=>track.artist),['RIIZE','aespa']);
+});
 test('discover returns evidence from two songs without inventing semantic differences',async()=>{
   const tracks=[{title:'A',artist:'RIIZE',durationMs:100000},{title:'B',artist:'RIIZE',durationMs:100000}];
   const findLyricsImpl=async title=>({status:'unverified',source:'LRCLIB',lines:[
