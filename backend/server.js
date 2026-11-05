@@ -5,6 +5,7 @@ const path=require('node:path');
 const {begin,get,node,answer,move,respond,teach,restart}=require('./agent/session');
 const model=require('./agent/model');
 const planner=require('./agent/planner');
+const planJobs=require('./agent/plan-jobs');
 const {loadEnv}=require('./env');
 const {findLyrics}=require('./media/lyrics');
 const {findNeteaseLyrics}=require('./media/netease-lyrics');
@@ -21,7 +22,7 @@ const mac=process.platform==='darwin'?require('./media/mac-music'):null;
 const systemPlayer=process.platform==='darwin'?require('./media/system-player').createBridge():
   process.platform==='win32'?require('./media/windows-player').createBridge():null;
 const root=path.join(__dirname,'..');
-const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/playback-retry.js':'frontend/playback-retry.js','/play-once.js':'frontend/play-once.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/text-edit.js':'frontend/text-edit.js','/style.css':'frontend/style.css'};
+const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/playback-retry.js':'frontend/playback-retry.js','/play-once.js':'frontend/play-once.js','/plan-phases.js':'shared/plan-phases.js','/plan-job.js':'frontend/plan-job.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/text-edit.js':'frontend/text-edit.js','/style.css':'frontend/style.css'};
 const mime={'html':'text/html; charset=utf-8','js':'text/javascript; charset=utf-8','css':'text/css; charset=utf-8'};
 const publicSongs=songs.map(validateSong);
 function send(res,status,data,type='application/json; charset=utf-8'){
@@ -176,6 +177,12 @@ function createServer(){return http.createServer(async(req,res)=>{
     if(req.method==='GET'&&url.pathname==='/api/qq/playlist'){
       const playlist=await qqPlaylist.importPublicPlaylist(url.searchParams.get('value')||'');
       return send(res,200,{playlist,source:'QQ 音乐公开分享歌单',reviewStatus:'unverified'});
+    }
+    if(req.method==='POST'&&url.pathname==='/api/agent/plan-jobs')return send(res,202,planJobs.create(await read(req,400000)));
+    const planJobMatch=url.pathname.match(/^\/api\/agent\/plan-jobs\/([^/]+)$/);
+    if(req.method==='GET'&&planJobMatch){
+      const job=planJobs.get(decodeURIComponent(planJobMatch[1]));
+      return job?send(res,200,job):send(res,404,{error:{code:'NOT_FOUND',message:'课程生成任务不存在或已过期'}});
     }
     if(req.method==='POST'&&url.pathname==='/api/agent/plan')return send(res,201,await planner.plan(await read(req,400000)));
     if(req.method==='POST'&&url.pathname==='/api/agent/explain')return send(res,200,await model.explain(await read(req)));

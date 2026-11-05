@@ -26,9 +26,10 @@ const fakePlan={
 
 async function main(){
   const originalPlan=planner.plan;
-  planner.plan=input=>originalPlan(input,{
+  planner.plan=(input,{onProgress}={})=>originalPlan(input,{
     completeJsonImpl:async()=>structuredClone(fakePlan),
-    dungeonGenerator:(course,{lines})=>Promise.resolve(fallbackDungeon(course,lines))
+    dungeonGenerator:(course,{lines})=>Promise.resolve(fallbackDungeon(course,lines)),
+    onProgress
   });
   const server=createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -151,10 +152,16 @@ async function main(){
     assert.ok(japanese.history.length>=japanese.progress.total);
     const chinese=await complete(catalog.songs.find(song=>song.language==='zh'),{branch:0});
     assert.ok(chinese.history.length>=chinese.progress.total);
-    const planned=await call('/api/agent/plan','POST',{song:dynamicSong,lines:dynamicLines,language:'ja'});
-    assert.equal(planned.status,201);assert.equal(planned.data.nodeCount,6);
-    assert.ok(!Object.hasOwn(planned.data,'nodes'));assert.match(planned.data.provenance,/AI 生成/);
-    const dynamicCreated=await call('/api/sessions','POST',{courseId:planned.data.courseId});
+    const startedPlan=await call('/api/agent/plan-jobs','POST',{song:dynamicSong,lines:dynamicLines,language:'ja'});
+    assert.equal(startedPlan.status,202);assert.equal(startedPlan.data.status,'queued');
+    let planned=startedPlan.data;
+    for(let poll=0;poll<50&&!['completed','failed'].includes(planned.status);poll++){
+      await new Promise(resolve=>setTimeout(resolve,5));
+      const response=await call(`/api/agent/plan-jobs/${planned.id}`);assert.equal(response.status,200);planned=response.data;
+    }
+    assert.equal(planned.status,'completed',planned.error?.message);assert.equal(planned.result.nodeCount,6);
+    assert.ok(!Object.hasOwn(planned.result,'nodes'));assert.match(planned.result.provenance,/AI 生成/);
+    const dynamicCreated=await call('/api/sessions','POST',{courseId:planned.result.courseId});
     assert.equal(dynamicCreated.status,201);assert.equal(dynamicCreated.data.mode,'ai_generated');
     const dynamicId=dynamicCreated.data.id;
     const dynamicMoveState={count:0},dynamicTeachState={count:0};

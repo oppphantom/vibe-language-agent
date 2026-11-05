@@ -72,25 +72,34 @@ test('model adapter rejects unsafe endpoints and unusable JSON responses',async(
     await assert.rejects(()=>completeJson({system:'system',user:'user'},async()=>({
       ok:true,json:async()=>({choices:[]})
     })),error=>error.code==='MODEL_OUTPUT');
+    await assert.rejects(()=>completeJson({system:'system',user:'user',timeoutMs:120000},async()=>{
+      throw Object.assign(Error('The operation was aborted due to timeout'),{name:'TimeoutError'});
+    }),error=>error.code==='MODEL_UPSTREAM'&&/120 秒/.test(error.message));
   }finally{
     for(const key of keys){if(previous[key]===undefined)delete process.env[key];else process.env[key]=previous[key]}
   }
 });
 
 test('planner turns real-song material into a private variable-level dungeon plan',async()=>{
-  let request;
+  const requests=[],phases=[];
   const result=await planner.plan({song,lines,language:'ja'},{
     completeJsonImpl:async input=>{
-      request=input;
+      requests.push(input);
       return structuredClone(fakeCourse);
     },
-    dungeonGenerator:(course,{lines:material})=>Promise.resolve(fallbackDungeon(course,material))
+    dungeonGenerator:async(course,{lines:material,completeJsonImpl})=>{
+      await completeJsonImpl({system:'dungeon',user:'material',timeoutMs:120000});
+      return fallbackDungeon(course,material);
+    },
+    onProgress:phase=>phases.push(phase)
   });
   assert.equal(result.nodeCount,6);assert.equal(result.language,'ja');
   assert.ok(result.levelCount>=3);
   assert.equal(Object.hasOwn(result,'nodes'),false);assert.equal(Object.hasOwn(result,'correctIndex'),false);
-  assert.match(request.system,/listening、meaning、story、culture、rest、challenge/);
-  const sentMaterial=JSON.parse(request.user);
+  assert.deepEqual(requests.map(request=>request.timeoutMs),[120000,120000]);
+  assert.deepEqual(phases,['analyzing_lyrics','generating_teaching','designing_dungeon','completed']);
+  assert.match(requests[0].system,/listening、meaning、story、culture、rest、challenge/);
+  const sentMaterial=JSON.parse(requests[0].user);
   assert.equal(sentMaterial.song.title,song.title);assert.equal(sentMaterial.lines.length,4);
 
   const created=session.begin({courseId:result.courseId});

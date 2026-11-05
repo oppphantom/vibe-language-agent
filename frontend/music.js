@@ -250,9 +250,9 @@
     const song=state.song,lines=state.lines;
     if(!song||!lines.length){$('planStatus').textContent='请先载入同步歌词。';return}
     const button=$('planSong');button.disabled=true;
-    $('planStatus').textContent='AI 正在分析歌词、选取表达并检查探索关卡，可能需要几十秒…';
+    $('planStatus').textContent='正在创建课程生成任务…';
     try{
-      const plan=await request('/api/agent/plan','POST',{song,lines,language:song.language});
+      const plan=await window.vibePlanJob.run(request,{song,lines,language:song.language},message=>{$('planStatus').textContent=message});
       if(state.song!==song||state.lines!==lines){$('planStatus').textContent='歌曲或歌词已切换，本次生成结果没有打开。';return}
       $('planStatus').textContent=`${plan.provenance}；正在打开「${plan.title}」。`;
       await window.vibeStudy.startCourse(plan.courseId);

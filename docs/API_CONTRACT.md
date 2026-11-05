@@ -78,6 +78,13 @@ Content-Type: application/json
 - `POST /api/agent/explain` 接收 `{"expression":"また","language":"ja","lines":["..."]}`，仅在本机服务配置模型后可用；`language` 省略时为韩语。返回结果标记为「AI 生成，未人工核对」，并回显规范化后的 `language` 和 `languageLabel`。
 - `POST /api/agent/plan` 接收同步歌词检索结果中的 `song`、`lines` 和 `language`。服务端要求至少四行歌词，先校验知识节点，再由专用地下城 Agent 根据歌曲特征决定 2–5 个普通关卡、教学包、布局和 note/npc/card 实体组合，并固定追加串词成句关。每个教学包必须包含证据行、学习目标、选材理由、读音词块、整句翻译、歌曲语境、文化说明和带解释的三选一引导检查。只有这些字段以及歌词引用、答案、知识卡和字符顺序全部通过校验后才返回 `courseId`；公开响应不包含答案键或隐藏题库。
 
+网页使用异步生成任务避免单个 HTTP 请求长时间悬空：
+
+- `POST /api/agent/plan-jobs` 接收与 `/api/agent/plan` 相同的课程材料，立即返回 `202`、任务 `id`、`status` 和 `phase`。
+- `GET /api/agent/plan-jobs/{id}` 返回当前真实阶段：`queued`、`analyzing_lyrics`、`generating_teaching`、`designing_dungeon`、`completed` 或 `failed`。
+- `completed` 时响应含 `result`，形状与同步规划接口一致；`failed` 时含脱敏后的 `error`。
+- 课程规划和地下城生成两次模型调用的单次超时均为 120 秒。任务只在本机内存保存两小时；当前页面会持续轮询，服务重启或刷新页面后不会自动恢复正在显示的任务。
+
 `POST /api/sessions` 兼容两种开始方式：
 
 ```json

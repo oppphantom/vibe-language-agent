@@ -5,6 +5,7 @@ const {parseSyncedLrc,findLyrics}=require('../backend/media/lyrics');
 const {capabilities,assets}=require('../backend/server');
 test('every browser helper script is exposed as a static asset',()=>{
   assert.equal(assets['/play-once.js'],'frontend/play-once.js');
+  assert.equal(assets['/plan-job.js'],'frontend/plan-job.js');
 });
 test('line times and source are validated',()=>{
   const line={id:'l1',songId:'s1',text:'다시',startMs:1000,endMs:2000,source:{kind:'original_demo'},reviewStatus:'original'};

@@ -27,6 +27,9 @@ async function completeJson({system,user,timeoutMs=30000},fetchImpl=fetch) {
       })
     });
   }catch(error){
+    if(error?.name==='TimeoutError'||String(error?.message||'').toLowerCase().includes('timeout')){
+      throw modelError(`模型服务在 ${Math.round(Math.max(1000,Math.min(120000,timeoutMs))/1000)} 秒内没有完成响应`,'MODEL_UPSTREAM');
+    }
     throw modelError('模型服务连接失败：'+String(error.message||'未知错误').slice(0,120),'MODEL_UPSTREAM');
   }
   if(!response.ok)throw modelError('模型服务返回 HTTP '+response.status,'MODEL_UPSTREAM');

@@ -528,9 +528,9 @@ const fmt=ms=>{const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padSt
 $('lookup').onsubmit=async event=>{event.preventDefault();$('liveStatus').textContent='正在检索和核对版本…';state.song=null;state.lines=[];$('liveLines').replaceChildren();$('liveLearning').hidden=true;$('livePlanStatus').textContent='';try{const language=selectedLanguage();const data=await api('/api/lyrics/search','POST',{title:$('title').value.trim(),artist:$('artist').value.trim(),durationMs:Math.round(Number($('duration').value)*1000),language});if(data.status!=='unverified'){$('liveStatus').textContent='没有找到时长匹配的同步歌词。';return}state.song=data.song;state.lines=data.lines;$('liveStatus').textContent=`找到 ${data.lines.length} 行${languageLabel(language)}歌词；来源 ${data.source}，语言由你选择且尚未自动核验。请确认音频版本。`;renderLines();$('liveLearning').hidden=false}catch(e){$('liveStatus').textContent=e.message}};
 $('planLiveSong').onclick=async()=>{
   if(!state.song||!state.lines.length){$('livePlanStatus').textContent='请先检索同步歌词。';return}
-  const button=$('planLiveSong');button.disabled=true;$('livePlanStatus').textContent='AI 正在分析歌词并校验探索关卡，可能需要几十秒…';
+  const button=$('planLiveSong');button.disabled=true;$('livePlanStatus').textContent='正在创建课程生成任务…';
   try{
-    const plan=await api('/api/agent/plan','POST',{song:state.song,lines:state.lines,language:state.song.language||selectedLanguage()});
+    const plan=await window.vibePlanJob.run(api,{song:state.song,lines:state.lines,language:state.song.language||selectedLanguage()},message=>{$('livePlanStatus').textContent=message});
     $('livePlanStatus').textContent=`${plan.provenance}；正在打开「${plan.title}」。`;
     await startSession({courseId:plan.courseId});
   }catch(error){$('livePlanStatus').textContent='课程生成失败：'+error.message}
