@@ -10,6 +10,19 @@
   const make=(tag,value,className)=>{const el=document.createElement(tag);el.textContent=value;if(className)el.className=className;return el};
   const learningLanguage=()=>$('learningLanguage')?.value||'ko';
   const languageClass=code=>`language-text language-${['ko','ja','zh'].includes(code)?code:'ko'}`;
+  const shelfPairs=[['musicSongs','musicSongsScroll'],['qqLibraryResults','qqLibraryScroll'],['neteaseResults','neteaseScroll']];
+  function updateShelfScroll(shelfId,controlId){
+    requestAnimationFrame(()=>{
+      const shelf=$(shelfId),control=$(controlId),maximum=Math.max(0,shelf.scrollWidth-shelf.clientWidth);
+      control.max=String(maximum);control.value=String(Math.min(maximum,shelf.scrollLeft));control.hidden=maximum<2;
+    });
+  }
+  for(const [shelfId,controlId] of shelfPairs){
+    const shelf=$(shelfId),control=$(controlId);
+    control.oninput=()=>{shelf.scrollLeft=Number(control.value)};
+    shelf.addEventListener('scroll',()=>{control.value=String(shelf.scrollLeft)},{passive:true});
+  }
+  window.addEventListener('resize',()=>shelfPairs.forEach(pair=>updateShelfScroll(...pair)));
   document.addEventListener('learning-language-change',()=>{
     if(!state.song||state.song.language===learningLanguage())return;
     state.song=null;state.lines=[];$('musicStudy').hidden=true;$('systemControls').hidden=true;
@@ -153,6 +166,7 @@
         song.provider='apple';card.append(make('small','MAC MUSIC LIBRARY'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)));
         const button=make('button','查看歌词与逐句播放');button.onclick=()=>selectSong(song);card.append(button);$('musicSongs').append(card)}
       if(!data.songs.length)$('musicSongs').textContent='没有找到该歌手的资料库歌曲。请确认歌曲已加入 Mac「音乐」资料库。';
+      updateShelfScroll('musicSongs','musicSongsScroll');
     }catch(error){$('musicStatus').textContent='读取失败：'+error.message}
   };
   function showQqResults(){
@@ -165,6 +179,7 @@
       if(state.platform==='win32')card.append(nativePlayButton(song));else card.append(directPlayLink(song),copyPlayLink(song));
       $('qqLibraryResults').append(card);
     }
+    updateShelfScroll('qqLibraryResults','qqLibraryScroll');
   }
   $('qqLibraryFilter').oninput=()=>{if(state.qqSongs.length)showQqResults()};
   $('qqLibrary').onclick=async()=>{
@@ -190,6 +205,7 @@
       if(state.platform==='win32')card.append(nativePlayButton(song));else card.append(directPlayLink(song),copyPlayLink(song));
       $('neteaseResults').append(card);
     }
+    updateShelfScroll('neteaseResults','neteaseScroll');
   }
   $('neteaseSearchForm').onsubmit=async event=>{
     event.preventDefault();$('neteaseResults').replaceChildren();$('neteaseSearchStatus').textContent='正在搜索网易云歌曲目录…';

@@ -66,6 +66,7 @@
     </div>
     <p id="musicStatus" role="status">尚未检查本机「音乐」。</p>
     <div id="musicSongs" class="song-grid"></div>
+    <input id="musicSongsScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览 Mac 音乐资料库歌曲" hidden>
 
     <div id="qqLibraryPanel" hidden>
       <button id="qqLibrary" type="button">读取我在 QQ 音乐的歌曲</button>
@@ -76,6 +77,7 @@
       <label>筛选歌曲<input id="qqLibraryFilter" placeholder="歌名或歌手"></label>
       <p id="qqLibraryStatus" role="status"></p>
       <div id="qqLibraryResults" class="song-grid"></div>
+      <input id="qqLibraryScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览 QQ 音乐歌曲" hidden>
     </div>
 
     <div id="neteaseSearch" hidden>
@@ -88,6 +90,7 @@
       </form>
       <p id="neteaseSearchStatus" role="status"></p>
       <div id="neteaseResults" class="song-grid"></div>
+      <input id="neteaseScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览网易云音乐歌曲" hidden>
     </div>
 
     <div id="musicStudy" hidden>

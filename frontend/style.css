@@ -418,8 +418,29 @@ input[type="checkbox"]{width:20px;height:20px;accent-color:var(--blue);border-ra
   padding:6px 2px 14px;
   overflow-x:auto;overflow-y:hidden;
   overscroll-behavior-x:contain;
-  scrollbar-width:thin;scrollbar-color:var(--line-strong) transparent;
+  scrollbar-width:thin;scrollbar-color:var(--blue) var(--surface-2);
+  scrollbar-gutter:stable;
 }
+:is(#musicSongs,#qqLibraryResults,#neteaseResults)::-webkit-scrollbar{height:12px}
+:is(#musicSongs,#qqLibraryResults,#neteaseResults)::-webkit-scrollbar-track{
+  border:1px solid var(--line);border-radius:9999px;background:var(--surface-2);
+}
+:is(#musicSongs,#qqLibraryResults,#neteaseResults)::-webkit-scrollbar-thumb{
+  min-width:48px;border:3px solid var(--surface-2);border-radius:9999px;background:var(--blue);
+}
+:is(#musicSongs,#qqLibraryResults,#neteaseResults)::-webkit-scrollbar-thumb:hover{background:var(--blue-hover)}
+.shelf-scroll{
+  display:block;width:100%;height:18px;min-height:18px;margin:2px 0 18px;padding:0;
+  border:0;border-radius:9999px;background:transparent;box-shadow:none;accent-color:var(--blue);cursor:ew-resize;
+}
+.shelf-scroll[hidden]{display:none}
+.shelf-scroll::-webkit-slider-runnable-track{height:8px;border:1px solid var(--line);border-radius:9999px;background:var(--surface-2)}
+.shelf-scroll::-webkit-slider-thumb{
+  width:44px;height:16px;margin-top:-5px;border:3px solid var(--surface-2);border-radius:9999px;
+  background:var(--blue);-webkit-appearance:none;appearance:none;
+}
+.shelf-scroll::-moz-range-track{height:8px;border:1px solid var(--line);border-radius:9999px;background:var(--surface-2)}
+.shelf-scroll::-moz-range-thumb{width:38px;height:12px;border:2px solid var(--surface-2);border-radius:9999px;background:var(--blue)}
 :is(#musicSongs,#qqLibraryResults,#neteaseResults)>.song-card{
   flex:0 0 calc((100% - 84px)/8);
   min-width:0;
