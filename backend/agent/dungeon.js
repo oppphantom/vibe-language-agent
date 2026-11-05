@@ -191,7 +191,7 @@ function roomView(node,room,personasView) {
   tiles[room.player.y][room.player.x]='@';cells[room.player.y][room.player.x]='player';
   return {
     tiles:tiles.map(row=>row.join('')),cells,
-    objective:node.type==='final'?'听循环歌词，按演唱顺序踩中地图上的字':`完成 ${room.objects.length} 个地图事件并抵达出口`,
+    objective:node.type==='final'?'听一遍歌词，按演唱顺序踩中地图上的字':`完成 ${room.objects.length} 个地图事件并抵达出口`,
     collected:room.resolved.length,total:room.objects.length,exitOpen:open,turn:room.turn,
     phrase:node.type==='final'?node.chars.slice(0,room.charProgress).join(''):'',charProgress:room.charProgress,
     charTotal:node.type==='final'?node.chars.length:0,

@@ -73,6 +73,7 @@ test('final room scatters exact character tiles and requires lyric order',()=>{
   const exit=walk(first.room,node,{x:17,y:7});
   assert.equal(exit.last.event.type,'locked');
   const view=roomView(node,first.room);
+  assert.equal(view.objective,'听一遍歌词，按演唱顺序踩中地图上的字');
   assert.equal(view.phrase,node.chars[0]);
   assert.equal(Object.hasOwn(view,'charLegend'),false);
   assert.deepEqual(view.charObjects.map(item=>item.char).sort(),node.chars.slice(1).sort());

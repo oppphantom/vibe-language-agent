@@ -21,7 +21,7 @@ const mac=process.platform==='darwin'?require('./media/mac-music'):null;
 const systemPlayer=process.platform==='darwin'?require('./media/system-player').createBridge():
   process.platform==='win32'?require('./media/windows-player').createBridge():null;
 const root=path.join(__dirname,'..');
-const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/playback-retry.js':'frontend/playback-retry.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/text-edit.js':'frontend/text-edit.js','/style.css':'frontend/style.css'};
+const assets={'/':'frontend/index.html','/sky.js':'frontend/sky.js','/playback-retry.js':'frontend/playback-retry.js','/play-once.js':'frontend/play-once.js','/app.js':'frontend/app.js','/music.js':'frontend/music.js','/text-edit.js':'frontend/text-edit.js','/style.css':'frontend/style.css'};
 const mime={'html':'text/html; charset=utf-8','js':'text/javascript; charset=utf-8','css':'text/css; charset=utf-8'};
 const publicSongs=songs.map(validateSong);
 function send(res,status,data,type='application/json; charset=utf-8'){
@@ -256,4 +256,4 @@ if(require.main===module){
   const port=Number(process.env.PORT||8767);
   createServer().listen(port,'127.0.0.1',()=>console.log(`VIBE Agent: http://127.0.0.1:${port}/`));
 }
-module.exports={createServer,capabilities};
+module.exports={createServer,capabilities,assets};

@@ -2,7 +2,10 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {validateLine,validateAnswer,validateRespond}=require('../shared/contract');
 const {parseSyncedLrc,findLyrics}=require('../backend/media/lyrics');
-const {capabilities}=require('../backend/server');
+const {capabilities,assets}=require('../backend/server');
+test('every browser helper script is exposed as a static asset',()=>{
+  assert.equal(assets['/play-once.js'],'frontend/play-once.js');
+});
 test('line times and source are validated',()=>{
   const line={id:'l1',songId:'s1',text:'다시',startMs:1000,endMs:2000,source:{kind:'original_demo'},reviewStatus:'original'};
   assert.equal(validateLine(line).startMs,1000);

@@ -329,6 +329,10 @@ button:disabled:hover,button:disabled:active{
   border-bottom-color:var(--line-strong);transform:none;
 }
 form,.controls{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin:24px 0}
+.final-playback-controls{display:grid;gap:8px;margin:14px 0 18px}
+.final-playback-controls[hidden]{display:none}
+.final-playback-controls span{color:var(--ink-muted);font-size:12px;line-height:1.5}
+.final-playback-controls button{justify-self:start}
 label{
   display:grid;gap:8px;min-width:0;
   color:var(--ink-soft);

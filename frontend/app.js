@@ -1,11 +1,11 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const state={session:null,node:null,attempt:1,lines:[],song:null,active:null,audioUrl:null,languages:[],demoSongs:[],learningLanguage:'ko',roomLog:[],moving:false,moveQueue:[],modalId:null,loopToken:0,loopNodeId:null,noteRetry:null,restarting:false};
+const state={session:null,node:null,attempt:1,lines:[],song:null,active:null,audioUrl:null,languages:[],demoSongs:[],learningLanguage:'ko',roomLog:[],moving:false,moveQueue:[],modalId:null,finalPlaybackToken:0,finalPlaybackNodeId:null,finalPlayback:null,noteRetry:null,restarting:false};
 function updateProgress(){const p=state.session?.progress;if(!p)return;const pct=p.total>0?Math.round(p.completed/p.total*100):0;const bar=$('progressBar'),fill=$('progressFill');if(bar)bar.setAttribute('aria-valuenow',String(pct));if(fill)fill.style.width=pct+'%';}
 async function api(path,method='GET',body){const response=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const data=await response.json();if(!response.ok)throw Error(data.error?.message||'请求失败');return data;}
 function mode(name){
   if(state.restarting)return;
-  if(name!=='study'){state.loopToken++;stopNotePlaybackRetry();if(!$('gameModal').hidden)closeGameModal()}
+  if(name!=='study'){state.finalPlaybackToken++;stopNotePlaybackRetry();if(!$('gameModal').hidden)closeGameModal()}
   $('music').hidden=name!=='music';$('demo').hidden=name!=='demo';$('live').hidden=name!=='live';$('study').hidden=name!=='study';
   for(const item of ['music','demo','live','study'])$(item+'Tab').classList.toggle('active',name===item);
 }
@@ -284,7 +284,7 @@ async function restartAdventure(button){
     const result=await api(`/api/sessions/${encodeURIComponent(state.session.id)}/restart`,'POST');
     setRestartLock(false);
     state.session=result.session;state.node=result.node;
-    state.roomLog=[];state.attempt=1;state.loopNodeId=null;state.loopToken++;
+    state.roomLog=[];state.attempt=1;state.finalPlaybackNodeId=null;state.finalPlaybackToken++;state.finalPlayback=null;
     localStorage.setItem('vibe-starter-session',state.session.id);
     renderNode();
     mode('study');
@@ -314,28 +314,40 @@ function showFinishChoice(){
   back.type='button';back.onclick=()=>{closeGameModal();mode('music')};
   $('modalOptions').append(restart,back);
 }
-function startFinalLoop(node){
-  const token=++state.loopToken;
-  if(node.interaction!=='final'||node.status==='completed'||!node.room.loopLineId)return;
+function finalLineEvidence(node){
+  if(node.interaction!=='final'||node.status==='completed'||!node.room.loopLineId)return null;
   const line=node.material.lines.find(item=>item.id===node.room.loopLineId);
   const song=line&&node.material.songs.find(item=>item.id===line.songId);
-  if(!line||!song||!window.vibeMusic?.playEvidence)return;
-  if(!song.provider){$('studyPlayback').textContent='当前样例没有音源，可在真实歌曲模式循环回听。';return}
-  let failures=0;
-  const play=async()=>{
-    if(token!==state.loopToken||$('study').hidden||state.session.status==='completed')return;
-    $('studyPlayback').textContent=failures?'终局播放暂未成功，正在重新尝试…':'终局旋律循环中…';
-    const played=await window.vibeMusic.playEvidence(song,line);
-    if(token!==state.loopToken||$('study').hidden||state.session.status==='completed')return;
-    if(played){failures=0;setTimeout(play,450)}
-    else{failures++;setTimeout(play,Math.min(4000,500*Math.pow(2,Math.max(0,failures-1))))}
-  };
-  setTimeout(play,250);
+  return line&&song?{line,song}:null;
+}
+async function playFinalOnce(node,{automatic=false}={}){
+  const evidence=finalLineEvidence(node),button=$('playFinalLine');
+  if(!evidence||!window.vibeMusic?.playEvidence)return;
+  const {line,song}=evidence;
+  if(!song.provider){$('studyPlayback').textContent='当前样例没有可播放音源。';return}
+  if(!state.finalPlayback)state.finalPlayback=window.VibePlayOnce.create({play:()=>window.vibeMusic.playEvidence(song,line)});
+  if(state.finalPlayback.running)return;
+  const token=++state.finalPlaybackToken;
+  button.disabled=true;
+  $('studyPlayback').textContent=automatic?'正在播放任务歌词…':'正在重播这句歌词…';
+  const played=await state.finalPlayback.run();
+  if(token!==state.finalPlaybackToken||$('study').hidden||state.session.status==='completed')return;
+  button.disabled=false;
+  button.textContent='▶ 再听一遍';
+  if(played)$('studyPlayback').textContent='正在播放一遍，句末会自动暂停。需要时可点“再听一遍”。';
+}
+function renderFinalPlayback(node){
+  const evidence=finalLineEvidence(node),controls=$('finalPlaybackControls'),button=$('playFinalLine');
+  controls.hidden=!evidence;
+  if(!evidence)return;
+  button.disabled=!evidence.song.provider||Boolean(state.finalPlayback?.running);
+  button.title=evidence.song.provider?'重新播放这句，句末自动暂停':'当前材料没有可播放音源';
+  button.onclick=()=>playFinalOnce(node);
 }
 function renderNode(){
   const node=state.node;
-  const loopNodeChanged=state.loopNodeId!==node.id||node.status==='completed';
-  if(loopNodeChanged){state.loopToken++;state.loopNodeId=node.id}
+  const playbackNodeChanged=state.finalPlaybackNodeId!==node.id||node.status==='completed';
+  if(playbackNodeChanged){state.finalPlaybackToken++;state.finalPlaybackNodeId=node.id;state.finalPlayback=null}
   closeGameModal();
   $('lesson').hidden=false;
   $('studyCourseTitle').textContent=`${state.session.courseTitle||'歌曲语境学习'} · ${state.session.languageLabel||languageLabel(state.session.language)}`;
@@ -347,6 +359,7 @@ function renderNode(){
   $('personaGlyph').textContent=node.persona?.glyph||'◈';
   $('personaName').textContent=node.persona?.name||'语境向导';
   $('personaTone').textContent=node.persona?.tone||'';
+  renderFinalPlayback(node);
   renderGameState();
   renderMap();
   renderAscii(node.room);
@@ -380,7 +393,7 @@ function renderNode(){
   $('feedback').className='room-event';
   updateProgress();
   if(node.room.pending?.challenge&&$('gameModal').hidden)setTimeout(()=>showChallenge(node.room.pending.challenge),0);
-  if(loopNodeChanged)startFinalLoop(node);
+  if(playbackNodeChanged&&finalLineEvidence(node))setTimeout(()=>playFinalOnce(node,{automatic:true}),250);
   if(state.session.status==='completed')setTimeout(showFinishChoice,0);
 }
 async function movePlayer(direction){
