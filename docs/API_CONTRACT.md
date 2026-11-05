@@ -1,4 +1,4 @@
-# API 与数据契约（版本 1）
+# API 与数据契约（版本 2）
 
 `shared/contract.js` 是歌曲、歌词行及答案提交的运行时校验来源，`shared/languages.js` 是 `ko`、`ja`、`zh` 语言代码的唯一注册表。本文说明其他对象的公开形状。时间一律用**整数毫秒**。未知起止时间用 `null`；已知开始、未知结束的最后一行可以保留，但不能启用「播完这一句自动暂停」。
 
@@ -8,7 +8,7 @@
 | `LyricLine` | `id`、`songId`、`text`、`startMs`、`endMs`、`source`、`reviewStatus`（`original`、`verified`、`unverified`）。 |
 | `PlaybackCapabilities` | `seek`、`lineLoop`、`speed`、`wordSeek` 布尔值及不支持时的 `reason`。 |
 | `LearningTarget` | `expression`、`skill`、`evidenceLineIds`、`prerequisites`。 |
-| `LessonNode` | `id`、`type`、`interaction`、`persona`、`stage`、`title`、`language`、`languageLabel`、`target`、`material`、`status`、`provenance`、`room`；`map` 含 Agent 决定的动态关卡路线，`edges` 含公开连边。 |
+| `LessonNode` | `id`、`type`、`interaction`、`persona`、`stage`、`title`、`language`、`languageLabel`、`target`、`material`、`status`、`provenance`、`room`、`teaching`；`map` 含 Agent 决定的动态关卡路线，`edges` 含公开连边。 |
 | `AnswerSubmission` | `sessionId`、`nodeId`、用于幂等的 `submissionId`、`choice`、`attempt`、`hintUsed`。 |
 | `Feedback` | `verdict`、`explanation`、`errorType`、`evidenceLineIds`、`nextAction`、实际执行的 `toolLog`。 |
 | `LearningSession` | `id`、`schemaVersion`、`mode`、`status`、`language`、`languageLabel`、`currentNodeId`、`route`、`history`、`progress`、`mastery`、`game`、`songId`。 |
@@ -27,9 +27,17 @@ Content-Type: application/json
 {"songId":"demo-morning"}
 ```
 
-韩语、日语和中文各有一套原创知识内容。真实歌曲由专用地下城 Agent 决定 2–5 个普通关卡和每张地图的 note/npc/card 组合，系统再固定追加“串词成句”终关，因此公开地图通常包含 3–6 个节点。
+韩语、日语和中文各有一套原创知识内容。真实歌曲由专用地下城 Agent 决定 2–5 个普通关卡、每关可验证的教学包和每张地图的 note/npc/card 组合，系统再固定追加“串词成句”终关，因此公开地图通常包含 3–6 个节点。
 
 创建后调用 `GET /api/sessions/{id}/node` 获取当前 19×9 ASCII 房间、角色位置、任务、符号图例和公开地图。
+
+每关先进入服务端控制的教学状态机。`teaching.phase` 依次为 `brief`（目标与选材理由）、`reading`（词块、读音与基本义）、`context`（整句翻译、歌曲语境与文化说明）、`check`（带提示的三选一检查）和 `ready`（允许进入地图）。继续教学使用：
+
+```json
+{"sessionId":"会话 ID","nodeId":"当前节点 ID","submissionId":"幂等教学 ID","action":"continue"}
+```
+
+引导检查使用同一 `POST /api/teach`，提交 `{"action":"answer","choice":0}`。答错会回到 `reading` 并提供补救说明，答对才进入 `ready`。公开响应不会返回 `correctIndex` 或评分解释；未进入 `ready` 时调用移动接口会返回 `409 TEACHING_REQUIRED`。相同 `submissionId` 不会重复记录教学尝试。固定课程使用人工编写的读音、基本义和整句翻译；AI 课程的每个拆读词块必须逐字存在于引用歌词行，语义内容仍明确标为“AI 生成，未人工核对”。
 
 新学习页面使用 `POST /api/moves`：
 
@@ -68,7 +76,7 @@ Content-Type: application/json
 
 - `POST /api/lyrics/search` 接收 `{"title":"...","artist":"...","durationMs":180000,"language":"ko|ja|zh"}`；`language` 省略时为韩语，可由用户显式选择日语或中文，服务不会声称自动识别语言。可带 `album`、`providerId` 缩小到对应版本，只返回标题、歌手、时长及已提供专辑匹配的同步歌词。`provider:"netease"` 时优先读取网易云对应歌曲 ID 的同步歌词；`provider:"qqmusic"` 时使用导入歌单携带的 song MID，或根据 macOS 本机 QQ 曲目 ID 查找歌曲 MID，再从 QQ 歌词接口读取逐行时间戳，失败才尝试 LRCLIB。`providerId` 指定用户在列表选中的版本。其他来源从 LRCLIB 匹配。结果为 `unverified` 或 `no_matched_version`，找不到匹配版本时不提供冒充的歌词。
 - `POST /api/agent/explain` 接收 `{"expression":"また","language":"ja","lines":["..."]}`，仅在本机服务配置模型后可用；`language` 省略时为韩语。返回结果标记为「AI 生成，未人工核对」，并回显规范化后的 `language` 和 `languageLabel`。
-- `POST /api/agent/plan` 接收同步歌词检索结果中的 `song`、`lines` 和 `language`。服务端要求至少四行歌词，先校验知识节点，再由专用地下城 Agent 根据歌曲特征决定 2–5 个普通关卡、布局和 note/npc/card 实体组合，并固定追加串词成句关。只有歌词引用、三选一答案、知识卡字段和字符顺序全部通过校验后才返回 `courseId`；公开响应不包含答案键或隐藏题库。
+- `POST /api/agent/plan` 接收同步歌词检索结果中的 `song`、`lines` 和 `language`。服务端要求至少四行歌词，先校验知识节点，再由专用地下城 Agent 根据歌曲特征决定 2–5 个普通关卡、教学包、布局和 note/npc/card 实体组合，并固定追加串词成句关。每个教学包必须包含证据行、学习目标、选材理由、读音词块、整句翻译、歌曲语境、文化说明和带解释的三选一引导检查。只有这些字段以及歌词引用、答案、知识卡和字符顺序全部通过校验后才返回 `courseId`；公开响应不包含答案键或隐藏题库。
 
 `POST /api/sessions` 兼容两种开始方式：
 
@@ -117,4 +125,4 @@ macOS 桥接需要 `nowplaying-cli`。Windows QQ 使用系统媒体会话和客�
 
 网易云搜索结果提供“复制网易云播放地址”。地址格式为 `orpheus://` 加 Base64 编码的 `{"type":"song","id":"歌曲 ID","cmd":"play"}`。QQ 本机歌曲列表提供 `qqmusicmac://cmd_count==1&&cmd_0==playsong&&id_0==歌曲ID` 地址；字段与命令来自本机已安装客户端的只读分析。用户在这台电脑上分别验证：把两种地址手动粘贴到浏览器地址栏并回车，可令对应客户端切歌播放；QQ 返回网页后还自动识别新曲目并载入同步歌词。歌曲卡片另外提供一个需用户主动点击的客户端协议链接；用户已验证在 Safari 点击 QQ 或网易云链接，均可直接切歌、回到网页载入同步歌词并逐句播放至句末暂停。当前内置浏览器点击客户端专用链接已实测未切歌。用户回到网页时，前端在聚焦或标签页重新可见时读取系统当前曲目，核对歌名、歌手、时长及可用的专辑名；匹配时保留歌曲 ID 并载入同步歌词，不匹配则明确提示实际播放的歌曲。仍可手动点“连接当前音乐来源”。这些客户端私有协议可能随版本改变。
 
-错误统一表示为 `{"error":{"code":"INVALID_INPUT","message":"..."}}`，并使用合适的 HTTP 状态。业务错误包括 `INVALID_INPUT`（400）、`NOT_FOUND`（404）、`STALE_NODE`（409）、`ALREADY_COMPLETED`（409）、`RUN_INCOMPLETE`（409）、`MODEL_UNAVAILABLE`（503）、`MODEL_UPSTREAM`（502）、`MODEL_OUTPUT`（502）、`MODEL_CONFIG`（500）和 `COURSE_INVALID`（500）。工具日志只含工具名、状态与脱敏摘要，不包含模型隐藏推理。
+错误统一表示为 `{"error":{"code":"INVALID_INPUT","message":"..."}}`，并使用合适的 HTTP 状态。业务错误包括 `INVALID_INPUT`（400）、`NOT_FOUND`（404）、`STALE_NODE`（409）、`ALREADY_COMPLETED`（409）、`RUN_INCOMPLETE`（409）、`TEACHING_REQUIRED`（409）、`TEACHING_STATE`（409）、`MODEL_UNAVAILABLE`（503）、`MODEL_UPSTREAM`（502）、`MODEL_OUTPUT`（502）、`MODEL_CONFIG`（500）和 `COURSE_INVALID`（500）。工具日志只含工具名、状态与脱敏摘要，不包含模型隐藏推理。

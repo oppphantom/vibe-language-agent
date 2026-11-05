@@ -2,7 +2,7 @@
 const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
-const {begin,get,node,answer,move,respond,restart}=require('./agent/session');
+const {begin,get,node,answer,move,respond,teach,restart}=require('./agent/session');
 const model=require('./agent/model');
 const planner=require('./agent/planner');
 const {loadEnv}=require('./env');
@@ -139,6 +139,7 @@ function createServer(){return http.createServer(async(req,res)=>{
     if(req.method==='POST'&&url.pathname==='/api/answers')return send(res,200,answer(await read(req)));
     if(req.method==='POST'&&url.pathname==='/api/moves')return send(res,200,move(await read(req)));
     if(req.method==='POST'&&url.pathname==='/api/respond')return send(res,200,respond(await read(req)));
+    if(req.method==='POST'&&url.pathname==='/api/teach')return send(res,200,teach(await read(req)));
     if(req.method==='POST'&&url.pathname==='/api/lyrics/search'){
       const input=await read(req);
       if(!Number.isInteger(input.durationMs)||input.durationMs<1000||input.durationMs>3600000)throw Error('歌曲时长无效');
@@ -247,7 +248,7 @@ function createServer(){return http.createServer(async(req,res)=>{
     const code=error.code||'REQUEST_FAILED';
     const status=code==='NOT_FOUND'?404:code==='MODEL_UNAVAILABLE'?503:code==='MODEL_UPSTREAM'?502:
       ['MODEL_CONFIG','COURSE_INVALID'].includes(code)?500:code==='MODEL_OUTPUT'?502:
-      ['ALREADY_COMPLETED','STALE_NODE','RUN_INCOMPLETE'].includes(code)?409:400;
+      ['ALREADY_COMPLETED','STALE_NODE','RUN_INCOMPLETE','TEACHING_REQUIRED','TEACHING_STATE'].includes(code)?409:400;
     send(res,status,{error:{code,message:String(error.message||'请求失败').slice(0,250)}});
   }
 });}

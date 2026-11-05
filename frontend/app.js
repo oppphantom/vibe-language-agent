@@ -12,6 +12,7 @@ function mode(name){
 $('musicTab').onclick=()=>mode('music');$('demoTab').onclick=()=>mode('demo');$('liveTab').onclick=()=>mode('live');
 $('studyTab').onclick=()=>{mode('study');if(!state.session)$('studyProvenance').textContent='还没有学习会话。请从离线样例或真实歌词开始生成课程。'};
 $('studyBack').onclick=()=>mode('music');
+$('teachingPlay').onclick=playTeachingEvidence;
 function text(tag,value,className){const el=document.createElement(tag);el.textContent=value;if(className)el.className=className;return el;}
 function selectedLanguage(){return $('learningLanguage').value||'ko'}
 function languageLabel(code){
@@ -170,6 +171,59 @@ function addRoomLog(message){
   state.roomLog=state.roomLog.slice(0,8);
   renderRoomLog();
 }
+const teachingPhaseLabels={brief:'01 · 为什么学',reading:'02 · 学会读',context:'03 · 理解语境',check:'04 · 带提示练习',ready:'TEACHING COMPLETE'};
+function teachingEvidence(){
+  const teaching=state.node?.teaching,line=state.node?.material?.lines?.find(item=>item.id===teaching?.lineId);
+  const song=line&&state.node.material.songs.find(item=>item.id===line.songId);
+  return line&&song?{line,song}:null;
+}
+async function playTeachingEvidence(){
+  const evidence=teachingEvidence();
+  if(!evidence||!evidence.song.provider||!window.vibeMusic?.playEvidence){$('teachingFeedback').textContent='当前材料没有可控的证据原声。';return}
+  $('teachingPlay').disabled=true;$('teachingFeedback').textContent='正在定位本关证据歌词…';
+  const played=await window.vibeMusic.playEvidence(evidence.song,evidence.line);
+  $('teachingPlay').disabled=false;
+  if(played)$('teachingFeedback').textContent='已播放一遍，句末自动暂停。';
+}
+async function submitTeaching(action,choice){
+  const buttons=[...$('teachingActions').querySelectorAll('button')];buttons.forEach(item=>item.disabled=true);
+  try{
+    const result=await api('/api/teach','POST',{sessionId:state.session.id,nodeId:state.node.id,
+      submissionId:crypto.randomUUID(),action,...(action==='answer'?{choice}:{})});
+    state.session=result.session;state.node=result.node;renderNode();
+    if(result.event.type==='teaching-remedial')$('teachingFeedback').textContent=result.event.message;
+    else if(result.event.type==='teaching-complete')addRoomLog('教学完成：'+result.event.message);
+  }catch(error){$('teachingFeedback').textContent='教学提交失败：'+error.message;buttons.forEach(item=>item.disabled=false)}
+}
+function teachingChunks(chunks){
+  const grid=text('div','','teaching-chunks');
+  chunks.forEach(chunk=>{const card=text('article','','teaching-chunk');card.append(text('strong',chunk.text,languageClass(state.session.language)),text('span',chunk.reading),text('p',chunk.meaning));grid.append(card)});
+  return grid;
+}
+function renderTeaching(){
+  const teaching=state.node.teaching,content=$('teachingContent'),actions=$('teachingActions');
+  $('teachingPanel').hidden=false;$('teachingPhase').textContent=teachingPhaseLabels[teaching.phase]||'先教后考';
+  $('teachingGoal').textContent=teaching.goal;$('teachingReason').textContent=teaching.reason;
+  $('teachingFeedback').textContent=teaching.feedback||'';content.replaceChildren();actions.replaceChildren();
+  const evidence=teachingEvidence();$('teachingPlay').disabled=!evidence?.song?.provider;
+  $('teachingPlay').title=evidence?.song?.provider?'播放本关引用的真实歌词':'当前材料没有可控音源';
+  if(teaching.phase==='brief')content.append(text('p','Agent 选择理由：'+teaching.reason,'teaching-note'));
+  else if(teaching.phase==='reading')content.append(teachingChunks(teaching.chunks));
+  else if(teaching.phase==='context')content.append(text('h3','整句意思'),text('p',teaching.translation),text('h3','歌曲语境'),text('p',teaching.context),text('h3','文化与表达'),text('p',teaching.cultureNote,'teaching-note'));
+  else if(teaching.phase==='check'){
+    content.append(text('h3',teaching.check.prompt));
+    teaching.check.options.forEach((option,index)=>{const button=text('button',`${String.fromCharCode(65+index)} · ${option}`);button.type='button';button.onclick=()=>submitTeaching('answer',index);actions.append(button)});
+  }else{
+    const summary=text('details','','teaching-review');summary.append(text('summary','教学完成 · 展开复习本关内容'));
+    summary.append(teachingChunks(teaching.chunks),text('h3','整句意思'),text('p',teaching.translation),text('h3','歌曲语境'),text('p',teaching.context),text('h3','文化与表达'),text('p',teaching.cultureNote,'teaching-note'));
+    content.append(text('p','你已完成目标、读音、词义和语境学习。现在进入脱离提示的地图考核。','teaching-complete'),summary);
+  }
+  if(['brief','reading','context'].includes(teaching.phase)){
+    const labels={brief:'下一步：学会读',reading:'下一步：理解语境',context:'下一步：带提示练习'};
+    const next=text('button',labels[teaching.phase]);next.type='button';next.onclick=()=>submitTeaching('continue');actions.append(next);
+  }
+  $('levelStage').hidden=teaching.phase!=='ready';
+}
 function setRestartLock(locked){
   state.restarting=locked;
   const main=document.querySelector('main');
@@ -315,7 +369,7 @@ function showFinishChoice(){
   $('modalOptions').append(restart,back);
 }
 function finalLineEvidence(node){
-  if(node.interaction!=='final'||node.status==='completed'||!node.room.loopLineId)return null;
+  if(node.interaction!=='final'||node.status==='completed'||node.teaching?.phase!=='ready'||!node.room.loopLineId)return null;
   const line=node.material.lines.find(item=>item.id===node.room.loopLineId);
   const song=line&&node.material.songs.find(item=>item.id===line.songId);
   return line&&song?{line,song}:null;
@@ -352,6 +406,7 @@ function renderNode(){
   $('lesson').hidden=false;
   $('studyCourseTitle').textContent=`${state.session.courseTitle||'歌曲语境学习'} · ${state.session.languageLabel||languageLabel(state.session.language)}`;
   $('studyProvenance').textContent=node.provenance;
+  renderTeaching();
   $('studyPlayback').textContent='';
   $('rewardToast').hidden=true;
   $('levelStage').className=`level-stage is-${node.interaction}`;
@@ -393,11 +448,14 @@ function renderNode(){
   $('feedback').className='room-event';
   updateProgress();
   if(node.room.pending?.challenge&&$('gameModal').hidden)setTimeout(()=>showChallenge(node.room.pending.challenge),0);
-  if(playbackNodeChanged&&finalLineEvidence(node))setTimeout(()=>playFinalOnce(node,{automatic:true}),250);
+  if(playbackNodeChanged&&node.teaching.phase==='ready'&&finalLineEvidence(node))setTimeout(()=>playFinalOnce(node,{automatic:true}),250);
   if(state.session.status==='completed')setTimeout(showFinishChoice,0);
 }
 async function movePlayer(direction){
   if(state.restarting)return;
+  if(state.node?.teaching?.phase!=='ready'){
+    $('teachingFeedback').textContent='请先完成上方的教学和带提示练习。';return;
+  }
   if(!$('gameModal').hidden){
     if(state.node.room.pending?.challenge)showChallenge(state.node.room.pending.challenge);
     return;

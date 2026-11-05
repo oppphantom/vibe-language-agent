@@ -1,6 +1,6 @@
 'use strict';
 const {normalizeLanguage,languageInfo}=require('./languages');
-const VERSION = 1;
+const VERSION = 2;
 const fail = (message) => { throw Object.assign(new Error(message), {code:'INVALID_INPUT'}); };
 const bounded = (value, label, max=200) => typeof value === 'string' && value.trim() && value.length <= max ? value.trim() : fail(label + '无效');
 function validateLine(line) {
@@ -37,6 +37,14 @@ function validateRespond(input) {
   const submissionId=bounded(input.submissionId,'重复提交 ID',100);
   if (!Number.isInteger(input.choice) || input.choice < 0 || input.choice > 2) fail('请选择一个有效答案');
   return {sessionId,nodeId,submissionId,choice:input.choice};
+}
+function validateTeach(input) {
+  if (!input || typeof input !== 'object') fail('教学请求无效');
+  const sessionId=bounded(input.sessionId,'会话 ID',100),nodeId=bounded(input.nodeId,'节点 ID',100);
+  const submissionId=bounded(input.submissionId,'重复提交 ID',100);
+  if (!['continue','answer'].includes(input.action)) fail('教学操作无效');
+  if (input.action==='answer'&&(!Number.isInteger(input.choice)||input.choice<0||input.choice>2)) fail('请选择一个有效答案');
+  return {sessionId,nodeId,submissionId,action:input.action,...(input.action==='answer'?{choice:input.choice}:{})};
 }
 function validateSong(song) {
   if (!song || typeof song !== 'object') fail('歌曲无效');
@@ -94,10 +102,25 @@ function validateLessonNode(input) {
   if (!Array.isArray(input.room.cells) || input.room.cells.length !== 9 ||
     input.room.cells.some(row=>!Array.isArray(row) || row.length !== 19)) fail('字符地图格子无效');
   if (!input.room.objective || !Number.isInteger(input.room.collected) || !Number.isInteger(input.room.total)) fail('关卡目标无效');
+  const teaching=input.teaching;
+  if (!teaching || !['brief','reading','context','check','ready'].includes(teaching.phase) ||
+    typeof teaching.goal !== 'string' || !teaching.goal.trim() || typeof teaching.reason !== 'string' || !teaching.reason.trim() ||
+    typeof teaching.lineId !== 'string' || !teaching.lineId.trim() || !Number.isInteger(teaching.attempts) || teaching.attempts<0 ||
+    typeof teaching.feedback !== 'string') fail('教学阶段无效');
+  if (!Array.isArray(teaching.chunks) || teaching.chunks.some(chunk=>!chunk || typeof chunk.text!=='string' || !chunk.text.trim() ||
+    typeof chunk.reading!=='string' || !chunk.reading.trim() || typeof chunk.meaning!=='string' || !chunk.meaning.trim())) fail('教学拆读无效');
+  if (['reading','context','check','ready'].includes(teaching.phase) && teaching.chunks.length<1) fail('教学拆读缺失');
+  if (['context','check','ready'].includes(teaching.phase) &&
+    [teaching.translation,teaching.context,teaching.cultureNote].some(value=>typeof value!=='string'||!value.trim())) fail('教学语境无效');
+  if (teaching.check!==null && (!teaching.check || typeof teaching.check.prompt!=='string' || !teaching.check.prompt.trim() ||
+    !Array.isArray(teaching.check.options) || teaching.check.options.length!==3 ||
+    teaching.check.options.some(option=>typeof option!=='string'||!option.trim()))) fail('教学检查无效');
+  if (teaching.phase==='check' && teaching.check===null) fail('教学检查缺失');
+  if (teaching.check && (Object.hasOwn(teaching.check,'correctIndex') || Object.hasOwn(teaching.check,'explanation'))) fail('公开教学不能包含答案字段');
   return {id,type:input.type,stage,title,prompt,options:[...input.options],evidence:input.evidence,map:input.map,
     status:input.status,language,languageLabel:languageInfo(language).label,target:input.target,
     material:input.material,provenance:input.provenance,interaction:input.interaction,
-    persona:input.persona,reward:input.reward,game:input.game,edges:input.edges,room:input.room};
+    persona:input.persona,reward:input.reward,game:input.game,edges:input.edges,room:input.room,teaching:input.teaching};
 }
 function validateLearningSession(input) {
   if (!input || typeof input !== 'object') fail('学习会话无效');
@@ -114,4 +137,4 @@ function validateLearningSession(input) {
     !Array.isArray(input.game.cards) || !Array.isArray(input.game.route)) fail('游戏进度无效');
   return {...input,language,languageLabel:languageInfo(language).label};
 }
-module.exports={VERSION,validateLine,validateSong,validateAnswer,validateMove,validateRespond,validateLessonNode,validateLearningSession};
+module.exports={VERSION,validateLine,validateSong,validateAnswer,validateMove,validateRespond,validateTeach,validateLessonNode,validateLearningSession};

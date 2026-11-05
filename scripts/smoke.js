@@ -71,6 +71,18 @@ async function main(){
       }
       return {node,noise:false};
     }
+    async function finishTeaching(id,node,counter){
+      let wrongChoice=0;
+      while(node.teaching.phase!=='ready'){
+        const phase=node.teaching.phase,action=phase==='check'?'answer':'continue';
+        const taught=await call('/api/teach','POST',{sessionId:id,nodeId:node.id,
+          submissionId:`${id}-teach-${counter.count++}`,action,...(action==='answer'?{choice:wrongChoice}:{})});
+        assert.equal(taught.status,200,taught.data.error?.message||'teaching failed');
+        node=taught.data.node;
+        if(taught.data.event.type==='teaching-remedial')wrongChoice++;
+      }
+      return node;
+    }
     async function complete(song,{branch=0,includeErrors=false}={}){
       const created=await call('/api/sessions','POST',{songId:song.id});
       assert.equal(created.status,201);assert.equal(created.data.language,song.language);
@@ -78,10 +90,11 @@ async function main(){
       const earlyRestart=await call(`/api/sessions/${id}/restart`,'POST');
       assert.equal(earlyRestart.status,409);assert.equal(earlyRestart.data.error.code,'RUN_INCOMPLETE');
       assert.ok(node.map.length>=3);assert.equal(node.room.tiles.length,9);assert.ok(!Object.hasOwn(node,'correctIndex'));
-      const moveState={count:0};
+      const moveState={count:0},teachState={count:0};
       let responseCount=0;
       for(let turns=0;turns<300&&(await call(`/api/sessions/${id}`)).data.status!=='completed';turns++){
         node=(await call(`/api/sessions/${id}/node`)).data;
+        if(node.teaching.phase!=='ready'){node=await finishTeaching(id,node,teachState);continue}
         if(node.room.pending){
           const challenge=node.room.pending.challenge;
           let choice=0;
@@ -129,25 +142,28 @@ async function main(){
     }
 
     const korean=await complete(catalog.songs.find(song=>song.language==='ko'),{branch:0,includeErrors:true});
-    assert.equal(korean.history.length,korean.progress.total);
+    assert.ok(korean.history.length>=korean.progress.total);
     const restarted=await call(`/api/sessions/${korean.id}/restart`,'POST');
     assert.equal(restarted.status,201);assert.equal(restarted.data.session.status,'active');
     assert.notEqual(restarted.data.session.id,korean.id);assert.equal(restarted.data.session.game.xp,0);
     assert.equal(restarted.data.node.room.tiles.length,9);
     const japanese=await complete(catalog.songs.find(song=>song.language==='ja'),{branch:1});
-    assert.equal(japanese.history.length,japanese.progress.total);
+    assert.ok(japanese.history.length>=japanese.progress.total);
     const chinese=await complete(catalog.songs.find(song=>song.language==='zh'),{branch:0});
-    assert.equal(chinese.history.length,chinese.progress.total);
+    assert.ok(chinese.history.length>=chinese.progress.total);
     const planned=await call('/api/agent/plan','POST',{song:dynamicSong,lines:dynamicLines,language:'ja'});
     assert.equal(planned.status,201);assert.equal(planned.data.nodeCount,6);
     assert.ok(!Object.hasOwn(planned.data,'nodes'));assert.match(planned.data.provenance,/AI 生成/);
     const dynamicCreated=await call('/api/sessions','POST',{courseId:planned.data.courseId});
     assert.equal(dynamicCreated.status,201);assert.equal(dynamicCreated.data.mode,'ai_generated');
     const dynamicId=dynamicCreated.data.id;
-    const dynamicMoveState={count:0};
+    const dynamicMoveState={count:0},dynamicTeachState={count:0};
     let dynamicResponseCount=0;
     for(let turns=0;turns<300&&(await call(`/api/sessions/${dynamicId}`)).data.status!=='completed';turns++){
       const current=(await call(`/api/sessions/${dynamicId}/node`)).data;
+      if(current.teaching.phase!=='ready'){
+        await finishTeaching(dynamicId,current,dynamicTeachState);continue;
+      }
       if(current.room.pending){
         const challenge=current.room.pending.challenge;
         let choice=0;

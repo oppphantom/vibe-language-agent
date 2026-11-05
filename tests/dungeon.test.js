@@ -32,7 +32,10 @@ test('fallback dungeon is generated from song knowledge and always adds a final 
     assert.ok(level.entities.length>=3);
     assert.ok(level.entities.filter(entity=>entity.kind==='note'||entity.kind==='npc').length>=2);
     assert.ok(level.entities.some(entity=>entity.kind==='card'));
+    assert.ok(level.lesson.goal);assert.ok(level.lesson.reason);assert.ok(level.lesson.translation);
+    assert.ok(level.lesson.context);assert.ok(level.lesson.chunks.length);assert.equal(level.lesson.check.options.length,3);
   }
+  assert.ok(dungeon.final.lesson.chunks.length);
   assert.equal(game.nodes.length,dungeon.levels.length+1);
   assert.equal(game.nodes.at(-1).interaction,'final');
   assert.ok(game.nodes.at(-1).chars.length>=2);
@@ -91,4 +94,8 @@ test('dungeon validator rejects missing content types and missing scatter seed',
   assert.throws(()=>validateDungeon(broken,journey,lines),error=>error.code==='MODEL_OUTPUT');
   const sparse=structuredClone(valid);sparse.levels[0].entities=[sparse.levels[0].entities[0]];
   assert.throws(()=>validateDungeon(sparse,journey,lines),error=>error.code==='MODEL_OUTPUT');
+  const withoutTeaching=structuredClone(valid);delete withoutTeaching.levels[0].lesson;
+  assert.throws(()=>validateDungeon(withoutTeaching,journey,lines),error=>error.code==='MODEL_OUTPUT');
+  const fabricatedChunk=structuredClone(valid);fabricatedChunk.levels[0].lesson.chunks[0].text='歌词中不存在的词';
+  assert.throws(()=>validateDungeon(fabricatedChunk,journey,lines),error=>error.code==='MODEL_OUTPUT');
 });

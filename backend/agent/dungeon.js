@@ -51,13 +51,21 @@ function scatterPositions(walls,enemies,count,seed) {
 
 function makeNode(level,index,count,course) {
   const evidence=new Set(level.entities.filter(entity=>entity.lineId).map(entity=>entity.lineId));
+  const sourceNode=course.nodes[Math.min(index,course.nodes.length-1)];
+  const lineId=[...evidence][0]||sourceNode.evidenceLineIds[0];
+  const lesson=level.lesson||{
+    goal:`听懂并读出「${course.targetExpression}」`,reason:sourceNode.explanation,lineId,
+    translation:sourceNode.explanation,context:sourceNode.remedial||sourceNode.explanation,cultureNote:'只依据当前歌词语境理解，不额外推断文化背景。',
+    chunks:String(course.targetExpression).split(/\s+/).map(text=>({text,reading:text,meaning:sourceNode.explanation})),
+    check:{prompt:sourceNode.prompt,options:[...sourceNode.options],correctIndex:sourceNode.correctIndex,explanation:sourceNode.explanation}
+  };
   const position={x:6+88*index/Math.max(1,count-1),y:index%2?165:90};
   return {
     id:`${course.id}-${level.id}`,
     type:'level',interaction:'dungeon',stage:level.title,skill:level.theme,title:level.title,
     target:{expression:course.targetExpression,skill:level.theme,evidenceLineIds:[...evidence],prerequisites:[]},
     prompt:level.theme,options:[],correctIndex:null,explanation:level.theme,remedial:'检查角色、歌词和知识卡。',
-    evidenceLineIds:[...evidence],personaId:level.personaId,layout:level.layout,entities:level.entities,nextNodeId:null,position,xp:35
+    evidenceLineIds:[...evidence],personaId:level.personaId,layout:level.layout,entities:level.entities,lesson,nextNodeId:null,position,xp:35
   };
 }
 
@@ -72,7 +80,12 @@ function createDungeonGame(course,lineCatalog) {
     target:{expression:course.targetExpression,skill:'串词成句',evidenceLineIds:[finalLine.id],prerequisites:[]},
     prompt:dungeon.final.title,options:[],correctIndex:null,explanation:'按顺序踩中歌词单字。',remedial:'听完整句，再从头按顺序踩。',
     evidenceLineIds:[finalLine.id],personaId:'final_narrator',chars:dungeon.final.chars,
-    scatterSeed:dungeon.final.scatterSeed,loopLineId:finalLine.id,
+    scatterSeed:dungeon.final.scatterSeed,loopLineId:finalLine.id,lesson:dungeon.final.lesson||{
+      goal:'脱离提示后听出并拼回目标歌词',reason:'用原唱检验本轮学习结果。',lineId:finalLine.id,
+      translation:course.nodes.at(-1).explanation,context:course.nodes.at(-1).remedial||course.nodes.at(-1).explanation,
+      cultureNote:'终局只复习已经学过的歌词证据。',chunks:[{text:course.targetExpression,reading:course.targetExpression,meaning:course.nodes.at(-1).explanation}],
+      check:{prompt:'准备好隐藏提示后回听并拼回这句歌词吗？',options:['准备好了','再复习一遍','先查看语境'],correctIndex:0,explanation:'教学阶段完成，进入独立测试。'}
+    },
     nextNodeId:null,position:{x:94,y:finalIndex%2?165:90},xp:80
   });
   nodes.forEach((node,index)=>{node.nextNodeId=nodes[index+1]?.id||null});

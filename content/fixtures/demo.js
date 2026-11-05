@@ -42,6 +42,9 @@ const journey={
   title:'다시：让未完成的事重新发生',
   language:'ko',
   targetExpression:'다시',
+  teaching:{reading:'다-시（da-si）',meaning:'再次、重新；把当前行动与之前发生或未完成的行动连接起来',translations:{
+    'demo-morning-2':'我们要不要再一起走走？','demo-return-1':'昨天没能说出口。','demo-return-2':'明天我们再聊吧。'
+  }},
   songIds:['demo-morning','demo-return'],
   provenance:'原创教学课程包；固定内容，可在离线环境完整验证',
   nodes:[
@@ -113,6 +116,9 @@ const japaneseJourney={
   title:'また：让共同行动再次发生',
   language:'ja',
   targetExpression:'また',
+  teaching:{reading:'ま-た（ma-ta）',meaning:'又、再次；表示相同或相关的事情再发生',translations:{
+    'demo-jp-morning-2':'雨停之后，我们也再一起走走吧。','demo-jp-morning-3':'昨天没能说出口的事，明天再说吧。','demo-jp-rain-2':'下一个春天，我也会再在这里等你。'
+  }},
   songIds:['demo-jp-morning','demo-jp-rain'],
   provenance:'原创日语教学课程包；固定内容，可在离线环境完整验证',
   nodes:[
@@ -177,6 +183,9 @@ const chineseJourney={
   title:'再见：告别之后仍留重逢可能',
   language:'zh',
   targetExpression:'再见',
+  teaching:{reading:'zài jiàn',meaning:'告别时使用，也可从字面指向“再次见面”',translations:{
+    'demo-zh-platform-2':'雨停之后，再见时再一起走吧。','demo-zh-next-1':'上一次告别时，我们说好还会回来。','demo-zh-next-3':'下次再见，我会把没说完的话讲完。'
+  }},
   songIds:['demo-zh-platform','demo-zh-next'],
   provenance:'原创中文教学课程包；固定内容，可在离线环境完整验证',
   nodes:[
