@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="VIBE RECORDS：从喜欢的音乐里，听见语言。歌曲语境学习 Agent，本机运行。">
 <meta name="theme-color" content="#1B3FD8">
-<title>VIBE RECORDS · Agent 基座</title>
+<title>VIBE RECORDS</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231B3FD8'/%3E%3Cpath d='M50 12 58 42 88 50 58 58 50 88 42 58 12 50 42 42z' fill='%23FF4D9D'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -30,14 +30,12 @@
       <div class="hero-strip" aria-hidden="true"><span>SIDE A · 한 · 日 · 中 · KO / JA / ZH</span></div>
     </div>
     <h1>再给我一首歌的时间</h1>
-    <p>在 macOS 或 Windows 连接 QQ 音乐、网易云音乐，按句听原声；Mac「音乐」还支持资料库检索与 Discover 语境比较。</p>
+    <p>连接音乐软件，按句听原声</p>
   </header>
 
   <nav aria-label="模式">
     <button id="musicTab" class="active" type="button">我的音乐资料库</button>
-    <button id="demoTab" type="button">离线教学演示</button>
-    <button id="studyTab" type="button">歌曲学习地图</button>
-    <button id="liveTab" type="button">本地音频与歌词</button>
+    <button id="studyTab" type="button" disabled>歌曲学习地图</button>
   </nav>
   <div class="language-switch">
     <label for="learningLanguage">学习语言</label>
@@ -50,7 +48,7 @@
   </div>
 
   <section id="music">
-    <div class="section-head"><span>01 / 连接音乐软件</span><span class="tag">保留原声 · 本机播放</span></div>
+    <div class="section-head"><span>01 / 连接音乐软件</span><span class="tag">本机播放</span></div>
     <p>Windows 可直接导入 QQ 公开歌单与网易云本机歌单，并从网页点播、跳转或逐句播放；macOS 继续使用系统媒体桥和客户端链接。所有歌单与播放控制只在本机处理。</p>
     <div class="controls">
       <label>音乐来源
@@ -109,7 +107,7 @@
       <div id="musicLyrics" class="lyric-list"></div>
       <div id="musicLearning" class="agent-box">
         <h2>从这首歌进入语境学习</h2>
-      <p>AI 会从当前同步歌词中选择一个表达，生成听辨、语境、剧情/文化岔路、营火与迁移挑战组成的探索小地图。生成结果会标明未人工核对。</p>
+        <p>从当前歌词中选择重点表达，依次完成拆读、语境理解、原声听辨与探索挑战。</p>
         <button id="planSong" type="button" disabled>生成歌曲学习地图</button>
         <p id="planStatus" role="status"></p>
       </div>
@@ -117,7 +115,7 @@
 
     <div class="agent-box">
       <h2>Discover · 跨歌曲找语境</h2>
-      <p>检索当前歌手资料库里重复出现的表达，保留上下句与逐句原声。这里只做文字命中；语义差异需要继续核对。</p>
+      <p>检索当前歌手资料库里重复出现的表达，保留上下句与逐句原声。</p>
       <form id="discoverForm">
         <label>目标语言歌词表达<input id="discoverQuery" value="다시" maxlength="40" required></label>
         <button type="submit">寻找其他歌曲中的语境</button>
@@ -126,12 +124,6 @@
       <p id="discoverPlayback" role="status"></p>
       <div id="discoverResults"></div>
     </div>
-    <p class="legacy">此前的功能仍可在 <a href="http://127.0.0.1:8766/vibe.html" target="_blank" rel="noopener">原 VIBE 原型 ↗</a> 使用；新项目会逐项迁入并验证。</p>
-  </section>
-
-  <section id="demo" hidden>
-    <div class="section-head"><span>01 / 选择材料</span><span class="tag">韩中日原创教学样例 · 无音源</span></div>
-    <div id="songs" class="song-grid"></div>
   </section>
 
   <section id="study" hidden>
@@ -155,7 +147,6 @@
         <svg id="adventureEdges" class="adventure-edges" viewBox="0 0 1000 260" preserveAspectRatio="none" aria-hidden="true"></svg>
         <ol id="journeyMap" class="adventure-map" aria-label="歌曲语境学习地图"></ol>
       </div>
-      <p id="studyProvenance"></p>
       <section id="teachingPanel" class="teaching-panel" aria-labelledby="teachingGoal">
         <div class="teaching-panel__head">
           <div><small id="teachingPhase">LEARN BEFORE TEST</small><h2 id="teachingGoal">本关教学目标</h2></div>
@@ -225,48 +216,8 @@
     </div>
   </section>
 
-  <section id="live" hidden>
-    <div class="section-head"><span>真实连接 / 逐项启用</span><span class="tag">实验能力</span></div>
-    <p>输入一首歌的版本信息，从 LRCLIB 检索同步歌词。结果未人工核对；请确认版本与时间偏移。</p>
-    <form id="lookup">
-      <label>歌名<input id="title" required maxlength="150" value="Memories"></label>
-      <label>歌手<input id="artist" required maxlength="150" value="RIIZE"></label>
-      <label>时长（秒）<input id="duration" type="number" min="1" max="3600" required value="180"></label>
-      <button type="submit">检索歌词</button>
-    </form>
-    <p id="liveStatus" role="status"></p>
-    <div class="controls">
-      <label>本地音频文件<input id="audioFile" type="file" accept="audio/*"></label>
-      <label>时间偏移（秒）<input id="offset" type="number" step="0.1" value="0"></label>
-      <label>速度
-        <select id="speed">
-          <option value="1">1.0×</option>
-          <option value="0.9">0.9×</option>
-          <option value="0.75">0.75×</option>
-        </select>
-      </label>
-      <label><input id="loop" type="checkbox">循环当前句</label>
-    </div>
-    <audio id="audio" controls></audio>
-    <p id="playStatus" role="status">没有音源时，逐句播放不可用。</p>
-    <div id="liveLines"></div>
-    <div id="liveLearning" class="agent-box" hidden>
-      <h2>用这段歌词开始语境学习</h2>
-      <p>AI 会从检索到的同步歌词生成游戏化知识地图。课程未人工核对；本地音频仍由你在当前页面控制。</p>
-      <button id="planLiveSong" type="button">生成探索学习地图</button>
-      <p id="livePlanStatus" role="status"></p>
-    </div>
-    <div class="agent-box">
-      <h2>模型解释（可选）</h2>
-      <p>由本机服务读取环境变量中的密钥。生成结果会标明未人工核对；服务端未配置时不可用。</p>
-      <input id="expression" placeholder="输入要理解的表达，如 다시 / また / 再见" maxlength="40">
-      <button id="explain" type="button">解释当前材料</button>
-      <div id="explanation" role="status"></div>
-    </div>
-  </section>
-
   <footer>
-    本项目只在本机回环地址运行。教学样例不含商业歌曲音频；真实歌词来自外部服务时需核对来源与版本。
+    VIBE RECORDS · Learn the language. Feel the music.
   </footer>
 </main>
 
@@ -290,6 +241,5 @@
 <script src="/plan-job.js" defer></script>
 <script src="/app.js" defer></script>
 <script src="/music.js" defer></script>
-<script src="/text-edit.js" defer></script>
 </body>
 </html>

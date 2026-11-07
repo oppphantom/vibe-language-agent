@@ -175,7 +175,7 @@
     const query=normal($('qqLibraryFilter').value),matches=state.qqSongs.filter(song=>!query||normal(song.title+' '+song.artist).includes(query));
     $('qqLibraryResults').replaceChildren();$('qqLibraryStatus').textContent=`${state.qqSource} ${state.qqSongs.length} 首；筛选后 ${matches.length} 首，当前展示前 80 首。`;
     for(const song of matches.slice(0,80)){
-      const card=document.createElement('article');card.className='song-card';card.append(make('small',state.qqSource+' · 未人工核对'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)+(song.album?' · '+song.album:'')));
+      const card=document.createElement('article');card.className='song-card';card.append(make('small',state.qqSource),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)+(song.album?' · '+song.album:'')));
       const preview=make('button','先看同步歌词');preview.type='button';preview.onclick=()=>selectSong({...song,providerId:song.id});
       card.append(preview);
       if(state.platform==='win32')card.append(nativePlayButton(song));else card.append(directPlayLink(song),copyPlayLink(song));
@@ -201,7 +201,7 @@
     $('neteaseResults').replaceChildren();
     $('neteaseSearchStatus').textContent=songs.length?`${source}找到 ${songs.length} 首。请核对版本；${state.platform==='win32'?'可直接让客户端播放。':'可以复制播放地址到浏览器地址栏切歌。'}`:'没有找到歌曲。';
     for(const song of songs){
-      const card=document.createElement('article');card.className='song-card';card.append(make('small',source+' · 未人工核对'),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)+(song.album?' · '+song.album:'')));
+      const card=document.createElement('article');card.className='song-card';card.append(make('small',source),make('h2',song.title),make('p',song.artist+' · '+time(song.durationMs)+(song.album?' · '+song.album:'')));
       const preview=make('button','先看同步歌词');preview.type='button';preview.onclick=()=>selectSong({...song,providerId:song.id});
       card.append(preview);
       if(state.platform==='win32')card.append(nativePlayButton(song));else card.append(directPlayLink(song),copyPlayLink(song));
@@ -254,7 +254,7 @@
       }
       if(song.provider==='netease'&&data.song?.source?.id)song.providerId=String(data.song.source.id);
       if(song.provider==='netease'&&song.playbackVerified)showCurrentSong(song);
-      $('musicSource').textContent=`来源 ${data.source} · ${data.lines.length} 行 · 未人工核对。${song.provider&&song.provider!=='apple'&&!song.playbackVerified?`当前仅预览歌词；请先在${providerName[song.provider]}客户端播放同一版本，再连接当前音乐来源。`:'先检查歌词与音频的时间偏移。'}`;
+      $('musicSource').textContent=`${data.source} · ${data.lines.length} 行歌词${song.provider&&song.provider!=='apple'&&!song.playbackVerified?`；请先在${providerName[song.provider]}客户端播放这首歌，再连接当前音乐来源。`:''}`;
       for(const line of data.lines){const button=document.createElement('button');button.type='button';button.className='lyric-row';
         button.append(make('span',time(line.startMs)),make('strong',line.text,languageClass(song.language)));
         button.disabled=line.endMs===null||(song.provider&&song.provider!=='apple'&&!song.playbackVerified);
@@ -272,7 +272,7 @@
     try{
       const plan=await window.vibePlanJob.run(request,{song,lines,language:song.language},message=>{$('planStatus').textContent=message});
       if(state.song!==song||state.lines!==lines){$('planStatus').textContent='歌曲或歌词已切换，本次生成结果没有打开。';return}
-      $('planStatus').textContent=`${plan.provenance}；正在打开「${plan.title}」。`;
+      $('planStatus').textContent=`课程已准备好，正在打开「${plan.title}」。`;
       await window.vibeStudy.startCourse(plan.courseId);
     }catch(error){
       $('planStatus').textContent='课程生成失败：'+error.message;
