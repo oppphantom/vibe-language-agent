@@ -74,6 +74,15 @@ Content-Type: application/json
 
 ## 歌词与模型
 
+### 本机会话模型配置
+
+- `GET /api/model-config` 返回 `configured`、`source`、`endpoint`、`model`、`apiType` 和 `apiKeySet`。`source` 为 `session`、`environment` 或 `none`；响应永远不包含完整 API Key。
+- `POST /api/model-config/test` 接收 `{"endpoint":"https://...","model":"...","apiKey":"...","apiType":"chat_completions|responses"}`。服务端先执行一次最小真实模型调用，只有成功后才把配置保存在当前 Node.js 进程内存。接口拒绝 HTTP、本机/私网式主机名、IP 地址，以及含账号密码、查询参数或片段的地址。
+- `DELETE /api/model-config` 清除本次进程内通过页面保存的配置；若 `.env` 同时提供了完整配置，清除后会回退到环境变量。
+- `GET /api/health` 的 `modelConfigured` 表示当前是否可调用模型，`modelSource` 表示配置来自 `session`、`environment` 或 `none`。
+
+页面提交的密钥只在本机服务进程内存中使用，不写入 `localStorage`、磁盘、日志或仓库，也不会通过读取接口返回。关闭或重启 Node.js 服务会清除会话配置。`.env` 是可选的高级配置方式，仍须保持在 Git 忽略范围内。
+
 - `POST /api/lyrics/search` 接收 `{"title":"...","artist":"...","durationMs":180000,"language":"ko|ja|zh"}`；`language` 省略时为韩语，可由用户显式选择日语或中文，服务不会声称自动识别语言。可带 `album`、`providerId` 缩小到对应版本，只返回标题、歌手、时长及已提供专辑匹配的同步歌词。`provider:"netease"` 时优先读取网易云对应歌曲 ID 的同步歌词；`provider:"qqmusic"` 时使用导入歌单携带的 song MID，或根据 macOS 本机 QQ 曲目 ID 查找歌曲 MID，再从 QQ 歌词接口读取逐行时间戳，失败才尝试 LRCLIB。`providerId` 指定用户在列表选中的版本。其他来源从 LRCLIB 匹配。结果为 `unverified` 或 `no_matched_version`，找不到匹配版本时不提供冒充的歌词。
 - `POST /api/agent/explain` 接收 `{"expression":"また","language":"ja","lines":["..."]}`，仅在本机服务配置模型后可用；`language` 省略时为韩语。返回结果标记为「AI 生成，未人工核对」，并回显规范化后的 `language` 和 `languageLabel`。
 - `POST /api/agent/plan` 接收同步歌词检索结果中的 `song`、`lines` 和 `language`。服务端要求至少四行歌词，先校验知识节点，再由专用地下城 Agent 根据歌曲特征决定 2–5 个普通关卡、教学包、布局和 note/npc/card 实体组合，并固定追加串词成句关。每个教学包必须包含证据行、学习目标、选材理由、读音词块、整句翻译、歌曲语境、文化说明和带解释的三选一引导检查。只有这些字段以及歌词引用、答案、知识卡和字符顺序全部通过校验后才返回 `courseId`；公开响应不包含答案键或隐藏题库。

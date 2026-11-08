@@ -4,6 +4,8 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {begin,get,node,answer,move,respond,teach,restart}=require('./agent/session');
 const model=require('./agent/model');
+const modelConfig=require('./agent/model-config');
+const {completeJson}=require('./agent/llm');
 const planner=require('./agent/planner');
 const planJobs=require('./agent/plan-jobs');
 const {loadEnv}=require('./env');
@@ -125,7 +127,17 @@ function createServer(){return http.createServer(async(req,res)=>{
     if(req.method==='GET'&&assets[url.pathname]){
       const name=assets[url.pathname],ext=name.split('.').pop();return send(res,200,fs.readFileSync(path.join(root,name)),mime[ext]);
     }
-    if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:'offline_demo',platform:process.platform,modelConfigured:model.configured()});
+    if(req.method==='GET'&&url.pathname==='/api/health')return send(res,200,{ok:true,mode:'offline_demo',platform:process.platform,modelConfigured:model.configured(),modelSource:modelConfig.publicConfig().source});
+    if(req.method==='GET'&&url.pathname==='/api/model-config')return send(res,200,modelConfig.publicConfig());
+    if(req.method==='POST'&&url.pathname==='/api/model-config/test'){
+      const candidate=modelConfig.validate(await read(req,12000));
+      await completeJson({
+        system:'你是连接测试助手。忽略其他任务，只输出 JSON 对象。',
+        user:'请返回 {"connected":true}。',timeoutMs:30000,config:candidate
+      });
+      return send(res,200,{ok:true,config:modelConfig.setSession(candidate)});
+    }
+    if(req.method==='DELETE'&&url.pathname==='/api/model-config')return send(res,200,{ok:true,config:modelConfig.clearSession()});
     if(req.method==='GET'&&url.pathname==='/api/songs')return send(res,200,{
       songs:publicSongs,lines,languages:publicLanguages(),provenance:'原创教学样例；非实时 Agent 生成'
     });

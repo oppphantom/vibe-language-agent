@@ -33,6 +33,47 @@
     const response=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
     const data=await response.json();if(!response.ok)throw Error(data.error?.message||'请求失败');return data;
   }
+  function renderModelConfig(config){
+    state.modelConfigured=config?.configured===true;
+    $('planSong').disabled=!state.modelConfigured;
+    $('modelStatusTag').textContent=state.modelConfigured?'已连接':'未连接';
+    $('modelEndpoint').value=config?.endpoint||$('modelEndpoint').value;
+    $('modelName').value=config?.model||'';
+    $('modelApiType').value=config?.apiType||'chat_completions';
+    $('modelPreset').value=/ark\.cn-beijing\.volces\.com\/api\/v3\/responses\/?$/.test(config?.endpoint||'')?'volcengine':
+      config?.endpoint==='https://api.openai.com/v1/chat/completions'?'openai':'custom';
+    const source=config?.source==='session'?'本次运行配置':config?.source==='environment'?'.env / 环境变量':'尚未配置';
+    $('modelSettingsStatus').className=state.modelConfigured?'is-success':'';
+    $('modelSettingsStatus').textContent=state.modelConfigured?`模型已连接：${config.model} · ${source}。API Key 已隐藏。`:'尚未连接模型。填写下方信息后测试连接。';
+    if(state.modelConfigured&&state.lines.length)$('planStatus').textContent='模型已连接，可以生成当前歌曲的学习地图。';
+    else if(!state.modelConfigured)$('planStatus').textContent='模型未配置：请打开“模型设置”连接 API，歌词播放仍可使用。';
+  }
+  async function loadModelConfig(){
+    try{renderModelConfig(await request('/api/model-config'))}
+    catch(error){$('modelSettingsStatus').className='is-error';$('modelSettingsStatus').textContent='读取模型配置失败：'+error.message}
+  }
+  $('modelPreset').onchange=()=>{
+    const preset=$('modelPreset').value;
+    if(preset==='openai'){$('modelEndpoint').value='https://api.openai.com/v1/chat/completions';$('modelApiType').value='chat_completions'}
+    if(preset==='volcengine'){$('modelEndpoint').value='https://ark.cn-beijing.volces.com/api/v3/responses';$('modelApiType').value='responses'}
+  };
+  $('modelEndpoint').oninput=()=>{$('modelPreset').value='custom'};
+  $('modelSettingsForm').onsubmit=async event=>{
+    event.preventDefault();
+    const button=$('testModelConfig');
+    const input={endpoint:$('modelEndpoint').value.trim(),model:$('modelName').value.trim(),apiKey:$('modelApiKey').value.trim(),apiType:$('modelApiType').value};
+    button.disabled=true;$('modelSettingsStatus').className='';$('modelSettingsStatus').textContent='正在测试接口；成功后只在本次 Node.js 进程内保存…';
+    try{
+      const result=await request('/api/model-config/test','POST',input);
+      $('modelApiKey').value='';renderModelConfig(result.config);
+      $('modelSettingsStatus').textContent=`连接成功：${result.config.model}。现在可以返回音乐页生成学习地图。`;
+    }catch(error){$('modelSettingsStatus').className='is-error';$('modelSettingsStatus').textContent='连接失败：'+error.message}
+    finally{button.disabled=false}
+  };
+  $('clearModelConfig').onclick=async()=>{
+    try{const result=await request('/api/model-config','DELETE');$('modelApiKey').value='';renderModelConfig(result.config)}
+    catch(error){$('modelSettingsStatus').className='is-error';$('modelSettingsStatus').textContent='清除失败：'+error.message}
+  };
   function clearPendingCheck(){
     if(pendingCheckTimer!==null)clearTimeout(pendingCheckTimer);
     pendingCheckTimer=null;pendingCheckAttempts=0;
@@ -340,6 +381,7 @@
       $('planSong').disabled=!state.modelConfigured;
       if(!state.modelConfigured)$('planStatus').textContent='模型未配置：仍然可以播放和查看歌词，但不能生成真实歌曲课程。';
     }catch{}
+    await loadModelConfig();
     if(state.platform==='win32'){
       $('musicProvider').querySelector('option[value=apple]')?.remove();
       $('musicProvider').value='qqmusic';$('qqLibrary').hidden=true;

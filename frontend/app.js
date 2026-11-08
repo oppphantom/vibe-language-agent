@@ -6,11 +6,13 @@ async function api(path,method='GET',body){const response=await fetch(path,{meth
 function mode(name){
   if(state.restarting)return;
   if(name!=='study'){state.finalPlaybackToken++;stopNotePlaybackRetry();if(!$('gameModal').hidden)closeGameModal()}
-  $('music').hidden=name!=='music';$('study').hidden=name!=='study';
-  for(const item of ['music','study'])$(item+'Tab').classList.toggle('active',name===item);
+  $('music').hidden=name!=='music';$('study').hidden=name!=='study';$('settings').hidden=name!=='settings';
+  for(const item of ['music','study','settings'])$(item+'Tab').classList.toggle('active',name===item);
 }
 $('musicTab').onclick=()=>mode('music');
 $('studyTab').onclick=()=>{if(state.session)mode('study');else mode('music')};
+$('settingsTab').onclick=()=>mode('settings');
+$('settingsBack').onclick=()=>mode('music');
 $('studyBack').onclick=()=>mode('music');
 $('teachingPlay').onclick=playTeachingEvidence;
 function text(tag,value,className){const el=document.createElement(tag);el.textContent=value;if(className)el.className=className;return el;}

@@ -1,30 +1,35 @@
 'use strict';
+const modelConfig=require('./model-config');
 
 function configured() {
-  return Boolean(process.env.VIBE_MODEL_API_KEY&&process.env.VIBE_MODEL_NAME&&process.env.VIBE_MODEL_ENDPOINT);
+  return Boolean(modelConfig.getRuntimeConfig());
 }
 
 function modelError(message,code) {
   return Object.assign(Error(message),{code});
 }
 
-async function completeJson({system,user,timeoutMs=30000},fetchImpl=fetch) {
-  if(!configured())throw modelError('模型未配置；请检查本机 .env 中的模型设置','MODEL_UNAVAILABLE');
+async function completeJson({system,user,timeoutMs=30000,config:overrideConfig},fetchImpl=fetch) {
+  const config=overrideConfig?modelConfig.validate(overrideConfig):modelConfig.getRuntimeConfig();
+  if(!config)throw modelError('模型未配置；请在设置页连接模型，或检查本机 .env','MODEL_UNAVAILABLE');
   if(typeof system!=='string'||!system.trim()||typeof user!=='string'||!user.trim())throw modelError('模型请求材料无效','INVALID_INPUT');
-  let endpoint;
-  try{endpoint=new URL(process.env.VIBE_MODEL_ENDPOINT)}catch{throw modelError('模型地址不是有效 URL','MODEL_CONFIG')}
-  if(endpoint.protocol!=='https:'||endpoint.username||endpoint.password||endpoint.hostname==='localhost'||/^\d+\.\d+\.\d+\.\d+$/.test(endpoint.hostname)){
-    throw modelError('模型地址必须是受信任的 HTTPS 服务','MODEL_CONFIG');
-  }
+  const endpoint=new URL(config.endpoint);
+  const body=config.apiType==='responses'?{
+    model:config.model,stream:false,
+    input:[
+      {role:'system',content:[{type:'input_text',text:system}]},
+      {role:'user',content:[{type:'input_text',text:user}]}
+    ]
+  }:{
+    model:config.model,stream:false,response_format:{type:'json_object'},
+    messages:[{role:'system',content:system},{role:'user',content:user}]
+  };
   let response;
   try{
     response=await fetchImpl(endpoint,{
       method:'POST',redirect:'error',signal:AbortSignal.timeout(Math.max(1000,Math.min(120000,timeoutMs))),
-      headers:{Authorization:'Bearer '+process.env.VIBE_MODEL_API_KEY,'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:process.env.VIBE_MODEL_NAME,stream:false,response_format:{type:'json_object'},
-        messages:[{role:'system',content:system},{role:'user',content:user}]
-      })
+      headers:{Authorization:'Bearer '+config.apiKey,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
     });
   }catch(error){
     if(error?.name==='TimeoutError'||String(error?.message||'').toLowerCase().includes('timeout')){
@@ -34,7 +39,13 @@ async function completeJson({system,user,timeoutMs=30000},fetchImpl=fetch) {
   }
   if(!response.ok)throw modelError('模型服务返回 HTTP '+response.status,'MODEL_UPSTREAM');
   let content;
-  try{content=(await response.json())?.choices?.[0]?.message?.content}catch{throw modelError('模型响应不是有效 JSON','MODEL_OUTPUT')}
+  try{
+    const payload=await response.json();
+    if(config.apiType==='responses'){
+      content=payload?.output_text;
+      if(typeof content!=='string')content=payload?.output?.flatMap(item=>item?.content||[]).find(item=>item?.type==='output_text'&&typeof item.text==='string')?.text;
+    }else content=payload?.choices?.[0]?.message?.content;
+  }catch{throw modelError('模型响应不是有效 JSON','MODEL_OUTPUT')}
   if(typeof content==='string'&&content.length>500000)throw modelError('模型响应过长','MODEL_OUTPUT');
   let parsed;
   try{parsed=JSON.parse(typeof content==='string'?content.replace(/^```(?:json)?\s*|\s*```$/gi,''):'null')}catch{

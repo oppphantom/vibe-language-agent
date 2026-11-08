@@ -1322,5 +1322,21 @@ body.is-restarting main{pointer-events:none;user-select:none}
 .knowledge-card dd{margin:0;font-size:14px;line-height:1.55}
 @keyframes modalIn{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
 
+/* 模型设置：密钥只交给本机服务，页面不持久化 */
+.settings-layout{display:grid;grid-template-columns:minmax(260px,.8fr) minmax(360px,1.2fr);gap:20px;align-items:start}
+.settings-intro small{font:800 11px var(--font-mono);letter-spacing:1.5px;color:var(--blue)}
+.settings-intro h2{margin:10px 0 12px;font-size:clamp(26px,4vw,44px);line-height:1.05}
+.settings-intro ol{display:grid;gap:10px;margin:20px 0 0;padding-left:22px;color:var(--ink-soft);line-height:1.55}
+.settings-form{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.settings-form>label{display:grid;gap:7px;font-size:13px;font-weight:800;color:var(--ink-soft)}
+.settings-form>label:nth-of-type(n+3){grid-column:1/-1}
+.settings-form input,.settings-form select{width:100%}
+.settings-form .security-note,.settings-form .controls,.settings-form [role="status"]{grid-column:1/-1}
+.security-note{margin:2px 0;padding:13px 15px;border:1px solid var(--blue-soft-line);border-radius:var(--r-inner);background:var(--blue-soft);font-size:12px;line-height:1.65;color:var(--ink-soft)}
+#modelSettingsStatus{min-height:24px;margin:0;font-weight:700;color:var(--blue-dark)}
+#modelSettingsStatus.is-error{color:var(--pink-ink)}
+#modelSettingsStatus.is-success{color:var(--blue-dark)}
+@media(max-width:800px){.settings-layout{grid-template-columns:1fr}.settings-form{grid-template-columns:1fr}.settings-form>label{grid-column:1!important}}
+
 
 

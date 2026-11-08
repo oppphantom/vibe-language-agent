@@ -36,6 +36,7 @@
   <nav aria-label="模式">
     <button id="musicTab" class="active" type="button">我的音乐资料库</button>
     <button id="studyTab" type="button" disabled>歌曲学习地图</button>
+    <button id="settingsTab" type="button">模型设置</button>
   </nav>
   <div class="language-switch">
     <label for="learningLanguage">学习语言</label>
@@ -46,6 +47,54 @@
     </select>
     <span id="languageStatus">课程、歌词与解释共用当前语言</span>
   </div>
+
+  <section id="settings" hidden>
+    <div class="section-head"><span>模型设置</span><span id="modelStatusTag" class="tag">未连接</span></div>
+    <div class="settings-layout">
+      <div class="agent-box settings-intro">
+        <small>BRING YOUR OWN MODEL</small>
+        <h2>连接你的模型服务</h2>
+        <p>配置成功后，Agent 才能根据真实歌词选择学习表达、生成教学包并设计歌曲地下城。</p>
+        <ol>
+          <li>选择服务商或自定义兼容接口。</li>
+          <li>填写模型名称和 API Key。</li>
+          <li>点击“测试并保存本次配置”。</li>
+          <li>返回音乐页，载入歌词并生成学习地图。</li>
+        </ol>
+      </div>
+      <form id="modelSettingsForm" class="agent-box settings-form">
+        <label>接口预设
+          <select id="modelPreset">
+            <option value="openai">OpenAI Chat Completions</option>
+            <option value="volcengine">火山方舟 Responses</option>
+            <option value="custom">自定义兼容接口</option>
+          </select>
+        </label>
+        <label>接口类型
+          <select id="modelApiType">
+            <option value="chat_completions">Chat Completions</option>
+            <option value="responses">Responses</option>
+          </select>
+        </label>
+        <label>接口地址
+          <input id="modelEndpoint" type="url" value="https://api.openai.com/v1/chat/completions" maxlength="500" required spellcheck="false">
+        </label>
+        <label>模型名称
+          <input id="modelName" maxlength="160" placeholder="例如 gpt-4.1-mini" required spellcheck="false">
+        </label>
+        <label>API Key
+          <input id="modelApiKey" type="password" maxlength="5000" placeholder="只用于本次本机服务" required autocomplete="new-password" spellcheck="false">
+        </label>
+        <p class="security-note">密钥只保存在本次本机服务进程的内存中，不写入网页存储、磁盘、日志或 Git；关闭 Node.js 服务后自动清除。页面不会读回完整密钥。</p>
+        <div class="controls">
+          <button id="testModelConfig" type="submit">测试并保存本次配置</button>
+          <button id="clearModelConfig" type="button" class="secondary">清除本次配置</button>
+          <button id="settingsBack" type="button" class="secondary">返回音乐页</button>
+        </div>
+        <p id="modelSettingsStatus" role="status">正在读取模型配置状态…</p>
+      </form>
+    </div>
+  </section>
 
   <section id="music">
     <div class="section-head"><span>01 / 连接音乐软件</span><span class="tag">本机播放</span></div>
