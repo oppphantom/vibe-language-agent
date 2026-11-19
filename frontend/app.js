@@ -250,6 +250,7 @@ function showKnowledgeCard(card){
   $('gameModal').hidden=false;$('modalKind').textContent='KNOWLEDGE CARD';
   $('modalTitle').textContent=card.term||'知识卡';
   $('modalPrompt').textContent='这张卡片已收入探索行囊。';
+  $('modalAudioChoices').hidden=true;
   $('modalOptions').replaceChildren();$('modalFeedback').textContent='';
   const body=$('modalCard');body.hidden=false;body.replaceChildren();
   body.append(text('strong',card.term||'知识卡'));
@@ -266,22 +267,59 @@ function showChallenge(challenge){
   $('gameModal').hidden=false;
   $('modalKind').textContent=challenge.kind==='note'?'LISTEN & CHOOSE':'STORY ENCOUNTER';
   $('modalTitle').textContent=challenge.kind==='note'?'听音辨词':'情境抉择';
+  const line=state.node?.material?.lines?.find(item=>item.id===challenge.lineId);
+  const song=line&&state.node.material.songs.find(item=>item.id===line.songId);
+  const audioAvailable=challenge.optionLineIds?.length===3;
   $('modalPrompt').textContent=challenge.prompt;
   $('modalCard').hidden=true;$('modalFeedback').textContent='';
   $('modalOptions').replaceChildren();
+  $('modalOptions').hidden=audioAvailable;
+  $('modalAudioChoices').hidden=!audioAvailable;
+  $('modalAudioChoices').replaceChildren();
+  let playing=false;
+  if(audioAvailable)challenge.optionLineIds.forEach((id,index)=>{
+    const optionLine=state.node.material.lines.find(item=>item.id===id);
+    const optionSong=optionLine&&state.node.material.songs.find(item=>item.id===optionLine.songId);
+    const row=document.createElement('div');row.className='modal-audio-choice';
+    const play=text('button',`▶ 播放音频 ${String.fromCharCode(65+index)}`);
+    const choose=text('button',`选择 ${String.fromCharCode(65+index)}`);
+    choose.type='button';choose.disabled=true;choose.dataset.requiresPlayback='true';
+    choose.onclick=()=>{if(!playing)respondChallenge(challenge,index,choose)};
+    play.type='button';play.onclick=async()=>{
+      if(playing)return;
+      playing=true;
+      stopNotePlaybackRetry();$('modalAudioStatus').textContent=`正在播放音频 ${String.fromCharCode(65+index)}…`;
+      try{const played=await window.vibeMusic.playEvidence(optionSong,optionLine);
+        if(state.modalId!==challenge.id||!choose.isConnected)return;
+        if(!played)throw Error('播放器未确认定位');
+        choose.dataset.played='true';choose.disabled=false;$('modalAudioStatus').textContent=`音频 ${String.fromCharCode(65+index)} 已开始播放，可以选择。`}
+      catch(error){if(state.modalId===challenge.id&&choose.isConnected)$('modalAudioStatus').textContent='播放失败：'+error.message}
+      finally{playing=false}
+    };
+    row.append(play,choose);$('modalAudioChoices').append(row);
+  });
   challenge.options.forEach((option,index)=>{
     const button=text('button',`${String.fromCharCode(65+index)} · ${option}`);
     button.type='button';button.onclick=()=>respondChallenge(challenge,index,button);
     $('modalOptions').append(button);
   });
-  if(challenge.kind==='note'&&!sameOpenChallenge)startNotePlaybackRetry(challenge);
+  if(challenge.kind==='note'&&!audioAvailable){
+    if(!sameOpenChallenge)startNotePlaybackRetry(challenge);
+    if(song?.provider){
+      const replay=text('button','▶ 重听原声');
+      replay.type='button';replay.onclick=()=>startNotePlaybackRetry(challenge);
+      $('modalAudioChoices').append(replay);$('modalAudioChoices').hidden=false;
+    }
+  }
 }
 function applyServerNode(result){
   state.session=result.session;state.node=result.node;
   renderNode();renderGameState();renderMap();updateProgress();
 }
 async function respondChallenge(challenge,choice,button){
-  const buttons=[...$('modalOptions').children];if(buttons.some(item=>item.disabled))return;
+  const buttons=[...$('modalOptions').children,...$('modalAudioChoices').querySelectorAll('button')];
+  if(button.disabled||buttons.some(item=>item.dataset.submitting==='true'))return;
+  button.dataset.submitting='true';
   buttons.forEach(item=>item.disabled=true);
   try{
     const result=await api('/api/respond','POST',{sessionId:state.session.id,nodeId:state.node.id,
@@ -296,12 +334,12 @@ async function respondChallenge(challenge,choice,button){
       closeGameModal();
     }else{
       state.session=result.session;state.node=result.node;renderGameState();renderMap();
-      buttons.forEach(item=>item.disabled=false);
+      buttons.forEach(item=>item.disabled=item.dataset.requiresPlayback==='true'&&item.dataset.played!=='true');delete button.dataset.submitting;
       button.classList.add('is-wrong');
     }
   }catch(error){
     $('modalFeedback').textContent='提交失败：'+error.message;
-    buttons.forEach(item=>item.disabled=false);
+    buttons.forEach(item=>item.disabled=item.dataset.requiresPlayback==='true'&&item.dataset.played!=='true');delete button.dataset.submitting;
   }
 }
 async function restartAdventure(button){

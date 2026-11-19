@@ -101,7 +101,7 @@ async function main(){
           let choice=0;
           if(challenge.kind==='note'){
             const line=node.material.lines.find(item=>item.id===challenge.lineId);
-            choice=challenge.options.findIndex(option=>option===line?.text);
+            choice=challenge.optionLineIds?.indexOf(challenge.lineId)??challenge.options.indexOf(line?.text);
           }
           const answered=await call('/api/respond','POST',{sessionId:id,nodeId:node.id,
             submissionId:`${id}-respond-${responseCount++}`,choice:Math.max(0,choice)});
@@ -176,7 +176,7 @@ async function main(){
         let choice=0;
         if(challenge.kind==='note'){
           const line=current.material.lines.find(item=>item.id===challenge.lineId);
-          choice=challenge.options.findIndex(option=>option===line?.text);
+          choice=challenge.optionLineIds?.indexOf(challenge.lineId)??challenge.options.indexOf(line?.text);
         }
         const answered=await call('/api/respond','POST',{sessionId:dynamicId,nodeId:current.id,
           submissionId:`${dynamicId}-respond-${dynamicResponseCount++}`,choice:Math.max(0,choice)});

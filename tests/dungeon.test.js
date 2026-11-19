@@ -7,13 +7,13 @@ const {createDungeonGame,createRoom,moveRoom,respondRoom,roomView}=require('../b
 
 const vectors={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
 function find(room,kind){return room.objects.find(object=>object.kind===kind&&!room.resolved.includes(object.id))}
-function walk(room,node,target,onObject){
+function walk(room,node,target,random){
   const start={x:room.player.x,y:room.player.y},queue=[{...start,path:[]}],seen=new Set([`${start.x},${start.y}`]);
   while(queue.length){
     const current=queue.shift();
     if(current.x===target.x&&current.y===target.y){
       let state=room,last=null;
-      for(const direction of current.path){const moved=moveRoom(node,state,direction);state=moved.room;last=moved;if(moved.event.type==='challenge'||moved.event.type==='card')break}
+      for(const direction of current.path){const moved=moveRoom(node,state,direction,random);state=moved.room;last=moved;if(moved.event.type==='challenge'||moved.event.type==='card')break}
       return {room:state,last};
     }
     for(const [direction,[dx,dy]] of Object.entries(vectors)){
@@ -47,6 +47,7 @@ test('note collision pauses movement and returns a three-line listening challeng
   assert.equal(result.last.event.type,'challenge');
   assert.equal(result.last.event.challenge.kind,'note');
   assert.equal(result.last.event.challenge.options.length,3);
+  assert.equal(result.last.event.challenge.optionLineIds,undefined);
   assert.equal(result.room.pending.objectId,note.id);
   const blocked=moveRoom(node,result.room,'right');
   assert.equal(blocked.event.type,'pending');
@@ -54,6 +55,29 @@ test('note collision pauses movement and returns a three-line listening challeng
   assert.equal(wrong.event.type,'retry');
   const right=respondRoom(node,result.room,note.entity.correctIndex);
   assert.equal(right.event.type,'correct');assert.equal(right.room.pending,null);
+});
+
+test('real song listening questions draw either mode and preserve it on retry',()=>{
+  const songs=[...new Set(lines.map(line=>line.songId))].map(id=>({id,provider:'apple'}));
+  const game=createDungeonGame({...journey,materials:{songs,lines}},lines),node=game.nodes[0];
+  for(const random of [()=>0,()=>0.99]){
+    const room=createRoom(node);room.enemies=[];
+    const note=find(room,'note'),result=walk(room,node,note,random);
+    const challenge=result.last.event.challenge;
+    if(random()===0){
+      assert.deepEqual(challenge.options,[]);
+      assert.equal(new Set(challenge.optionLineIds).size,3);
+      assert.equal(challenge.optionLineIds[note.entity.correctIndex],note.entity.lineId);
+      assert.ok(challenge.prompt.includes(note.entity.options[note.entity.correctIndex]));
+    }else{
+      assert.equal(challenge.optionLineIds,undefined);
+      assert.equal(challenge.options[note.entity.correctIndex],note.entity.options[note.entity.correctIndex]);
+      assert.equal(challenge.prompt,'听这段原声，选择对应的歌词。');
+    }
+    const wrong=respondRoom(node,result.room,(note.entity.correctIndex+1)%3);
+    assert.deepEqual(wrong.event.challenge,challenge);
+    assert.equal(respondRoom(node,result.room,note.entity.correctIndex).correct,true);
+  }
 });
 
 test('knowledge cards reveal reading meaning usage and example',()=>{

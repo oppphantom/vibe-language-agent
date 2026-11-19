@@ -1300,6 +1300,11 @@ body.is-text-editing .shell :is(button,a){cursor:text}
 .game-modal h2{margin:7px 0 10px;font-size:26px;color:var(--ink)}
 .game-modal p{font-size:15px;line-height:1.7;color:var(--ink-soft)}
 #modalAudioStatus{min-height:20px;margin:8px 0;font-size:12px!important;font-weight:700;color:var(--blue)!important}
+.modal-audio-choices{display:grid;gap:12px;margin-top:14px}
+.modal-audio-choice{display:flex;gap:10px;align-items:center}
+.modal-audio-choice button:first-child{flex:1;text-align:left}
+.modal-audio-choice button:last-child{min-width:90px}
+.modal-audio-choices[hidden],.modal-options[hidden]{display:none!important}
 .game-modal.is-busy{cursor:progress}
 .game-modal.is-busy .game-modal__close{opacity:.28;pointer-events:none}
 .game-modal.is-busy .modal-options button{pointer-events:none;opacity:.55}

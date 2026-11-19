@@ -49,6 +49,8 @@ Content-Type: application/json
 
 碰到 `♪` 或 `?` 时，响应 `event.type` 为 `challenge`，房间进入 `pending`，移动暂停。提交三选一答案使用：
 
+音符题 `challenge.kind` 为 `note`，`lineId` 指向目标歌词。真实歌曲有三句不同的可播放歌词时，触发题目会以同等概率抽取两种模式，答错重试或重新打开时沿用本题模式。「给歌词，选原声」在 `prompt` 中给出目标歌词，`options` 为空，`optionLineIds` 按 A/B/C 顺序指向三个片段。「给原声，选歌词」播放目标歌词，`options` 给出三个文字选项。没有可控音源的原创样例继续使用文字选项。
+
 ```json
 {"sessionId":"会话 ID","nodeId":"房间节点 ID","submissionId":"幂等答题 ID","choice":0}
 ```
