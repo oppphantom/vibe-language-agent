@@ -39,6 +39,7 @@ function view(session){
   return validateLearningSession({
     id:session.id,schemaVersion:VERSION,mode:course.mode||'offline_demo',status:session.status,
     language:course.language,languageLabel:languageInfo(course.language).label,courseId:course.id,courseTitle:course.title,
+    learnerProfile:course.learnerProfile||null,
     currentNodeId:finished?null:run.currentNodeId,route:[...run.route],history:session.history.map(item=>({...item})),
     progress:{completed:run.completedNodeIds.size,total:session.game.routeTotal,
       current:finished?session.game.routeTotal:Math.min(run.completedNodeIds.size+1,session.game.routeTotal)},
@@ -120,7 +121,21 @@ function respond(raw){
   if(session.responses.has(input.submissionId))return session.responses.get(input.submissionId);
   if(session.status==='completed')fail('这一轮地下城已经完成','ALREADY_COMPLETED');
   const item=currentItem(session);if(input.nodeId!==item.id)fail('当前关卡已变化，请刷新后继续','STALE_NODE');
-  const room=ensureRoom(session,item),answered=respondRoom(item,room,input.choice);
+  if(session.run.teaching.phase!=='ready')fail('请先完成本关教学','TEACHING_REQUIRED');
+  const room=ensureRoom(session,item),challenge=room.pending?.challenge;
+  const answered=respondRoom(item,room,input.choice);
+  const attempts=session.history.filter(record=>record.questionId===challenge.id);
+  session.history.push({
+    id:input.submissionId,nodeId:item.id,questionId:challenge.id,lineId:challenge.lineId,
+    stage:item.stage,skill:item.skill,interaction:'question',kind:challenge.kind,
+    targetText:materialLines(session.course).find(line=>line.id===challenge.lineId)?.text||'',
+    songId:session.songId,
+    questionType:challenge.kind==='npc'?'context':challenge.optionLineIds?.length===3?'lyrics_to_audio':'audio_to_lyrics',
+    choice:input.choice,selectedLineId:challenge.optionLineIds?.[input.choice]||null,
+    correct:answered.correct,attempt:attempts.length+1,firstAttempt:attempts.length===0,
+    hintUsed:attempts.length>0,errorType:answered.correct?null:'answer_mismatch',
+    metrics:input.metrics,at:new Date().toISOString()
+  });
   session.run.room=answered.room;
   const at=new Date().toISOString();let xpEarned=0;
   if(answered.correct){session.run.streak+=1;xpEarned=10+session.run.streak*2;session.run.xp+=xpEarned}
@@ -147,6 +162,8 @@ function teach(raw){
     teaching.attempts++;
     const correct=input.choice===item.lesson.check.correctIndex;
     session.history.push({nodeId:item.id,stage:'关卡教学',skill:item.skill,interaction:'teaching',choice:input.choice,
+      targetText:materialLines(session.course).find(line=>line.id===item.lesson.lineId)?.text||'',
+      questionPrompt:item.lesson.check.prompt,
       correct,attempt:teaching.attempts,hintUsed:correct&&teaching.attempts>1,errorType:correct?null:'teaching_gap',at});
     if(correct){
       teaching.phase='ready';teaching.feedback=item.lesson.check.explanation;

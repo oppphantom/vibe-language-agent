@@ -140,6 +140,21 @@
       <input id="neteaseScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览网易云音乐歌曲" hidden>
     </div>
 
+    <section class="agent-box" aria-labelledby="learnerTitle">
+      <h2 id="learnerTitle">这次想怎么学</h2>
+      <div class="controls">
+        <label>阅读基础<select id="learnerLevel"><option value="starter">刚开始认识文字</option><option value="beginner" selected>能读一点，连句吃力</option><option value="comfortable">能读歌词，想加强理解</option></select></label>
+        <label>本次目标<select id="learnerGoal"><option value="listening">听原声认出歌词</option><option value="reading">把歌词读顺</option><option value="meaning">理解歌词语境</option></select></label>
+        <label>时间预算<select id="learnerMinutes"><option value="5">约 5 分钟</option><option value="10" selected>约 10 分钟</option><option value="15">约 15 分钟</option></select></label>
+      </div>
+      <p id="learnerStatus" role="status">目标会用于推荐歌词片段和生成下一次课程。</p>
+    </section>
+    <details class="agent-box">
+      <summary>我的学习记录</summary>
+      <p id="learningRecordSummary"></p>
+      <p id="learningRecordStatus" role="status"></p>
+      <div id="learningRecordList" class="learning-record-list"></div>
+    </details>
     <div id="musicStudy" hidden>
       <div class="section-head"><span>02 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div>
       <p id="musicSource"></p>
@@ -153,7 +168,21 @@
         <button id="systemJump" type="button">跳转并播放</button>
       </div>
       <p id="musicPlayback" role="status">选择一句歌词开始播放。</p>
+      <div class="record-entry"><span>唱片解锁 · 从喜欢的一句开始</span><p>听原声、学会读、理解前后句，再带着新理解回听。</p></div>
+      <section class="agent-box" aria-labelledby="analysisTitle">
+        <h2 id="analysisTitle">适合先学的片段</h2>
+        <p id="analysisStatus" role="status"></p>
+        <div id="analysisResults"></div>
+      </section>
       <div id="musicLyrics" class="lyric-list"></div>
+      <section id="recordPanel" class="record-panel" hidden aria-labelledby="recordTitle">
+        <div class="record-panel__head"><div><small id="recordStep">01 / LISTEN</small><h2 id="recordTitle">歌词解锁</h2></div><button id="recordClose" type="button">返回歌词</button></div>
+        <p id="recordLine" class="record-panel__line"></p>
+        <p id="recordProgress" role="status"></p>
+        <div id="recordContent" class="record-panel__content"></div>
+        <div class="record-panel__actions"><button id="recordPlay" type="button">▶ 听这一句</button><button id="recordNext" type="button">下一步</button></div>
+      </section>
+      <section class="record-notes" aria-labelledby="recordNotesTitle"><h3 id="recordNotesTitle">我的歌词笔记 <span id="recordCount">0</span></h3><p id="recordSavedStatus" role="status"></p><div id="recordNotesList"></div></section>
       <div id="musicLearning" class="agent-box">
         <h2>从这首歌进入语境学习</h2>
         <p>从当前歌词中选择重点表达，依次完成拆读、语境理解、原声听辨与探索挑战。</p>
@@ -289,6 +318,7 @@
 <script src="/play-once.js" defer></script>
 <script src="/plan-phases.js" defer></script>
 <script src="/plan-job.js" defer></script>
+<script src="/learning.js" defer></script>
 <script src="/app.js" defer></script>
 <script src="/music.js" defer></script>
 </body>

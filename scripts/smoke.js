@@ -132,7 +132,7 @@ async function main(){
       }
       const finished=await call(`/api/sessions/${id}`);
       assert.equal(finished.data.status,'completed',`movement smoke stalled at ${node.id} in ${node.interaction}: ${node.room.collected}/${node.room.total}; ${node.room.tiles.join('|')}`);assert.equal(finished.data.language,song.language);
-      assert.ok(finished.data.game.cards.length>=1);assert.equal(finished.data.mastery.status,'mastered');
+      assert.ok(finished.data.game.cards.length>=1);assert.ok(['completed','needs_review'].includes(finished.data.mastery.status));
       if(includeErrors){
         const after=await call('/api/moves','POST',{
           sessionId:id,nodeId:finished.data.route[finished.data.route.length-1],submissionId:`${id}-after`,direction:'right'

@@ -3,6 +3,25 @@ const {normalizeLanguage,languageInfo}=require('./languages');
 const VERSION = 2;
 const fail = (message) => { throw Object.assign(new Error(message), {code:'INVALID_INPUT'}); };
 const bounded = (value, label, max=200) => typeof value === 'string' && value.trim() && value.length <= max ? value.trim() : fail(label + '无效');
+function validateLearnerProfile(input={}) {
+  if(!input||typeof input!=='object'||Array.isArray(input))fail('学习目标无效');
+  const {level='beginner',goal='listening',minutes=10}=input;
+  if(!['starter','beginner','comfortable'].includes(level)||
+    !['reading','listening','meaning'].includes(goal)||![5,10,15].includes(minutes))fail('学习目标选项无效');
+  return {level,goal,minutes};
+}
+function validatePracticeMetrics(input) {
+  if(input===undefined)return null;
+  if(!input||typeof input!=='object'||Array.isArray(input))fail('练习记录无效');
+  const result={};
+  for(const key of ['playRequests','playSuccesses','playFailures']){
+    const value=input[key]??0;
+    if(!Number.isInteger(value)||value<0||value>10000)fail('播放次数无效');
+    result[key]=value;
+  }
+  if(result.playSuccesses+result.playFailures>result.playRequests)fail('播放记录不一致');
+  return result;
+}
 function validateLine(line) {
   if (!line || typeof line !== 'object') fail('歌词行无效');
   const id = bounded(line.id, '行 ID', 100);
@@ -36,7 +55,7 @@ function validateRespond(input) {
   const sessionId=bounded(input.sessionId,'会话 ID',100), nodeId=bounded(input.nodeId,'节点 ID',100);
   const submissionId=bounded(input.submissionId,'重复提交 ID',100);
   if (!Number.isInteger(input.choice) || input.choice < 0 || input.choice > 2) fail('请选择一个有效答案');
-  return {sessionId,nodeId,submissionId,choice:input.choice};
+  return {sessionId,nodeId,submissionId,choice:input.choice,metrics:validatePracticeMetrics(input.metrics)};
 }
 function validateTeach(input) {
   if (!input || typeof input !== 'object') fail('教学请求无效');
@@ -131,10 +150,10 @@ function validateLearningSession(input) {
   if (!input.progress || !Number.isInteger(input.progress.completed) || !Number.isInteger(input.progress.total) ||
     input.progress.completed < 0 || input.progress.total < 1 || input.progress.completed > input.progress.total ||
     (input.status === 'completed') !== (input.progress.completed === input.progress.total)) fail('学习进度无效');
-  if (!input.mastery || !['new','practicing','mastered'].includes(input.mastery.status)) fail('掌握摘要无效');
+  if (!input.mastery || !['new','practicing','mastered','needs_review','completed'].includes(input.mastery.status)) fail('掌握摘要无效');
   if (!input.game || !Number.isInteger(input.game.xp) || input.game.xp < 0 ||
     !Number.isInteger(input.game.streak) || input.game.streak < 0 ||
     !Array.isArray(input.game.cards) || !Array.isArray(input.game.route)) fail('游戏进度无效');
   return {...input,language,languageLabel:languageInfo(language).label};
 }
-module.exports={VERSION,validateLine,validateSong,validateAnswer,validateMove,validateRespond,validateTeach,validateLessonNode,validateLearningSession};
+module.exports={validateLearnerProfile,validatePracticeMetrics,VERSION,validateLine,validateSong,validateAnswer,validateMove,validateRespond,validateTeach,validateLessonNode,validateLearningSession};
