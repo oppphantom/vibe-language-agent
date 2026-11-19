@@ -39,6 +39,7 @@ function masteryView(course,history,{courseCompleted=false,nodes=course.nodes}={
     }
   }
   for(const item of history) {
+    if(item.choice===null)continue;
     const node=nodes.find(candidate=>candidate.id===item.nodeId);
     if(node)skillRecords.get(node.skill).push(item);
   }
@@ -51,7 +52,7 @@ function masteryView(course,history,{courseCompleted=false,nodes=course.nodes}={
     let status='new';
     if(attempts>0) {
       if(!lastCorrect)status='needs_review';
-      else if(courseCompleted)status='mastered';
+      else if(courseCompleted)status=errors>0||hintsUsed>0?'needs_review':'completed';
       else if(errors>0||hintsUsed>0)status='needs_review';
       else status='practicing';
     }
@@ -66,7 +67,7 @@ function masteryView(course,history,{courseCompleted=false,nodes=course.nodes}={
   else summary='尚未开始作答。';
   return {
     expression:course.targetExpression,
-    status:courseCompleted?'mastered':history.length?'practicing':'new',
+    status:courseCompleted?(weakSkills.length?'needs_review':'completed'):history.length?'practicing':'new',
     summary,
     weakSkills,
     skills

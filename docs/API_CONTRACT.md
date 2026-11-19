@@ -49,6 +49,8 @@ Content-Type: application/json
 
 碰到 `♪` 或 `?` 时，响应 `event.type` 为 `challenge`，房间进入 `pending`，移动暂停。提交三选一答案使用：
 
+音符题 `challenge.kind` 为 `note`，`lineId` 指向目标歌词。真实歌曲有三句不同的可播放歌词时，触发题目会以同等概率抽取两种模式，答错重试或重新打开时沿用本题模式。「给歌词，选原声」在 `prompt` 中给出目标歌词，`options` 为空，`optionLineIds` 按 A/B/C 顺序指向三个片段。「给原声，选歌词」播放目标歌词，`options` 给出三个文字选项。没有可控音源的原创样例继续使用文字选项。
+
 ```json
 {"sessionId":"会话 ID","nodeId":"房间节点 ID","submissionId":"幂等答题 ID","choice":0}
 ```
@@ -85,6 +87,7 @@ Content-Type: application/json
 
 - `POST /api/lyrics/search` 接收 `{"title":"...","artist":"...","durationMs":180000,"language":"ko|ja|zh"}`；`language` 省略时为韩语，可由用户显式选择日语或中文，服务不会声称自动识别语言。可带 `album`、`providerId` 缩小到对应版本，只返回标题、歌手、时长及已提供专辑匹配的同步歌词。`provider:"netease"` 时优先读取网易云对应歌曲 ID 的同步歌词；`provider:"qqmusic"` 时使用导入歌单携带的 song MID，或根据 macOS 本机 QQ 曲目 ID 查找歌曲 MID，再从 QQ 歌词接口读取逐行时间戳，失败才尝试 LRCLIB。`providerId` 指定用户在列表选中的版本。其他来源从 LRCLIB 匹配。结果为 `unverified` 或 `no_matched_version`，找不到匹配版本时不提供冒充的歌词。
 - `POST /api/agent/explain` 接收 `{"expression":"また","language":"ja","lines":["..."]}`，仅在本机服务配置模型后可用；`language` 省略时为韩语。返回结果标记为「AI 生成，未人工核对」，并回显规范化后的 `language` 和 `languageLabel`。
+- `POST /api/agent/record-lesson` 接收 `{"line":"...","previous":"...","next":"...","language":"ko"}`，为唱片解锁的单句学习生成读音、重点义、整句翻译、前后句语境和有证据边界的文化说明；五个字段不齐全时拒绝响应。已解锁笔记仅保存在用户浏览器本地。
 - `POST /api/agent/plan` 接收同步歌词检索结果中的 `song`、`lines` 和 `language`。服务端要求至少四行歌词，先校验知识节点，再由专用地下城 Agent 根据歌曲特征决定 2–5 个普通关卡、教学包、布局和 note/npc/card 实体组合，并固定追加串词成句关。每个教学包必须包含证据行、学习目标、选材理由、读音词块、整句翻译、歌曲语境、文化说明和带解释的三选一引导检查。只有这些字段以及歌词引用、答案、知识卡和字符顺序全部通过校验后才返回 `courseId`；公开响应不包含答案键或隐藏题库。
 
 网页使用异步生成任务避免单个 HTTP 请求长时间悬空：
@@ -142,3 +145,19 @@ macOS 桥接需要 `nowplaying-cli`。Windows QQ 使用系统媒体会话和客�
 网易云搜索结果提供“复制网易云播放地址”。地址格式为 `orpheus://` 加 Base64 编码的 `{"type":"song","id":"歌曲 ID","cmd":"play"}`。QQ 本机歌曲列表提供 `qqmusicmac://cmd_count==1&&cmd_0==playsong&&id_0==歌曲ID` 地址；字段与命令来自本机已安装客户端的只读分析。用户在这台电脑上分别验证：把两种地址手动粘贴到浏览器地址栏并回车，可令对应客户端切歌播放；QQ 返回网页后还自动识别新曲目并载入同步歌词。歌曲卡片另外提供一个需用户主动点击的客户端协议链接；用户已验证在 Safari 点击 QQ 或网易云链接，均可直接切歌、回到网页载入同步歌词并逐句播放至句末暂停。当前内置浏览器点击客户端专用链接已实测未切歌。用户回到网页时，前端在聚焦或标签页重新可见时读取系统当前曲目，核对歌名、歌手、时长及可用的专辑名；匹配时保留歌曲 ID 并载入同步歌词，不匹配则明确提示实际播放的歌曲。仍可手动点“连接当前音乐来源”。这些客户端私有协议可能随版本改变。
 
 错误统一表示为 `{"error":{"code":"INVALID_INPUT","message":"..."}}`，并使用合适的 HTTP 状态。业务错误包括 `INVALID_INPUT`（400）、`NOT_FOUND`（404）、`STALE_NODE`（409）、`ALREADY_COMPLETED`（409）、`RUN_INCOMPLETE`（409）、`TEACHING_REQUIRED`（409）、`TEACHING_STATE`（409）、`MODEL_UNAVAILABLE`（503）、`MODEL_UPSTREAM`（502）、`MODEL_OUTPUT`（502）、`MODEL_CONFIG`（500）和 `COURSE_INVALID`（500）。工具日志只含工具名、状态与脱敏摘要，不包含模型隐藏推理。
+
+## 学习目标、片段分析与逐题记录
+
+- 学习目标 `profile` 可选，缺省为 `{level:"beginner",goal:"listening",minutes:10}`。level 支持 starter / beginner / comfortable，goal 支持 reading / listening / meaning，minutes 支持 5 / 10 / 15。无效枚举拒绝处理。
+- `POST /api/agent/analyze` 接收 song、lines、profile，无需模型。返回规范化 profile、recommendedLineIds、逐行 fragments 与分析依据。指标包括文字字符数、句级区间、文字密度、重复次数和文字系统混用。未知末尾时间、超出曲长的片段不会被推荐。重复文本只推荐一次，推荐数随时间预算为 2 / 3 / 5。排序是可解释的初始启发式，声学难度未分析。
+- plan 与 plan-jobs 支持同一 profile，课程规划和地下城生成均接收目标与推荐行。时间仅为模型规划预算，实际耗时由用户决定。旧调用方可省略 profile。
+- respond 支持可选 metrics，含 playRequests、playSuccesses、playFailures 三个 0–10000 的整数，成功与失败之和不得超过请求次数。数据由浏览器观测，代表上次作答后发生的播放请求，不表示完整听完或客观能力。缺省为 null。网络未返回的请求不计成功或失败。
+- 服务端依据当前 pending 题目记录 questionId、题型、目标行、目标文本、所选索引/片段、首次作答、尝试次数、正误、时间与播放统计。同一 submissionId 重试不新增记录。答错后的再次作答标记已看过反馈。题型为 lyrics_to_audio / audio_to_lyrics / context。
+- 浏览器按会话保存服务端返回的作答快照，教学检查与地图题均展示在“我的学习记录”。刷新后保留，服务重启后可查看历史，但旧会话不能继续。记录仅在当前浏览器，存储失败会提示。首次正确率为观察指标，不构成困难诊断。
+- 过关事件不计入答题统计。完成课程后的 mastery 状态为 completed 或 needs_review，兼容旧 mastered 值。
+
+### 本地体验修正
+
+推荐候选必须包含所选学习语言对应的文字系统。此筛选属于文字系统启发式，不能自动识别所有歌曲语言。单句 record-lesson 接收可选 profile，使用与完整课程相同的基础和目标选项。教学检查记录增加 targetText 和 questionPrompt，便于区分不同关卡。页面展示基础代号的中文说明、可见保存反馈以及课程生成等待时间。
+
+给原声选歌词题在首次播放成功前禁用作答，重听请求进行中也禁用作答与重复重听。同一题进行中的播放请求复用，作答在播放请求结束后提交计数；答错后保留已听过的状态。关闭题面后迟到的播放结果不再更新弹窗。

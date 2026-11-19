@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id);
 const state={session:null,node:null,attempt:1,languages:[],learningLanguage:'ko',roomLog:[],moving:false,moveQueue:[],modalId:null,finalPlaybackToken:0,finalPlaybackNodeId:null,finalPlayback:null,noteRetry:null,restarting:false};
 function updateProgress(){const p=state.session?.progress;if(!p)return;const pct=p.total>0?Math.round(p.completed/p.total*100):0;const bar=$('progressBar'),fill=$('progressFill');if(bar)bar.setAttribute('aria-valuenow',String(pct));if(fill)fill.style.width=pct+'%';}
-async function api(path,method='GET',body){const response=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const data=await response.json();if(!response.ok)throw Error(data.error?.message||'请求失败');return data;}
+async function api(path,method='GET',body){const response=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const data=await response.json();if(!response.ok)throw Error(data.error?.message||'请求失败');window.vibeLearning?.capture(data.session||data);return data;}
 function mode(name){
   if(state.restarting)return;
   if(name!=='study'){state.finalPlaybackToken++;stopNotePlaybackRetry();if(!$('gameModal').hidden)closeGameModal()}
@@ -171,7 +171,7 @@ async function submitTeaching(action,choice){
       submissionId:crypto.randomUUID(),action,...(action==='answer'?{choice}:{})});
     state.session=result.session;state.node=result.node;renderNode();
     if(result.event.type==='teaching-remedial')$('teachingFeedback').textContent=result.event.message;
-    else if(result.event.type==='teaching-complete')addRoomLog('教学完成：'+result.event.message);
+    else if(result.event.type==='teaching-complete')addRoomLog('教学完成：'+learnerCopy(result.event.message));
   }catch(error){$('teachingFeedback').textContent='教学提交失败：'+error.message;buttons.forEach(item=>item.disabled=false)}
 }
 function teachingChunks(chunks){
@@ -179,22 +179,27 @@ function teachingChunks(chunks){
   chunks.forEach(chunk=>{const card=text('article','','teaching-chunk');card.append(text('strong',chunk.text,languageClass(state.session.language)),text('span',chunk.reading),text('p',chunk.meaning));grid.append(card)});
   return grid;
 }
+function learnerCopy(value){
+  return String(value||'').replace(/\bL(\d+)\b/g,'第 $1 句')
+    .replace(/\bstarter\b/g,'初学者')
+    .replace(/\b(?:story|culture|listening|meaning)\s*节点/g,'相关练习');
+}
 function renderTeaching(){
   const teaching=state.node.teaching,content=$('teachingContent'),actions=$('teachingActions');
   $('teachingPanel').hidden=false;$('teachingPhase').textContent=teachingPhaseLabels[teaching.phase]||'先教后考';
-  $('teachingGoal').textContent=teaching.goal;$('teachingReason').textContent=teaching.reason;
+  $('teachingGoal').textContent=learnerCopy(teaching.goal);$('teachingReason').textContent=learnerCopy(teaching.reason);
   $('teachingFeedback').textContent=teaching.feedback||'';content.replaceChildren();actions.replaceChildren();
   const evidence=teachingEvidence();$('teachingPlay').disabled=!evidence?.song?.provider;
   $('teachingPlay').title=evidence?.song?.provider?'播放本关引用的真实歌词':'当前材料没有可控音源';
-  if(teaching.phase==='brief')content.append(text('p','Agent 选择理由：'+teaching.reason,'teaching-note'));
+  if(teaching.phase==='brief')content.append(text('p','先听原声，再逐步拆读并理解这句歌词。','teaching-note'));
   else if(teaching.phase==='reading')content.append(teachingChunks(teaching.chunks));
-  else if(teaching.phase==='context')content.append(text('h3','整句意思'),text('p',teaching.translation),text('h3','歌曲语境'),text('p',teaching.context),text('h3','文化与表达'),text('p',teaching.cultureNote,'teaching-note'));
+  else if(teaching.phase==='context')content.append(text('h3','整句意思'),text('p',learnerCopy(teaching.translation)),text('h3','歌曲语境'),text('p',learnerCopy(teaching.context)),text('h3','文化与表达'),text('p',learnerCopy(teaching.cultureNote),'teaching-note'));
   else if(teaching.phase==='check'){
-    content.append(text('h3',teaching.check.prompt));
+    content.append(text('h3',learnerCopy(teaching.check.prompt)));
     teaching.check.options.forEach((option,index)=>{const button=text('button',`${String.fromCharCode(65+index)} · ${option}`);button.type='button';button.onclick=()=>submitTeaching('answer',index);actions.append(button)});
   }else{
     const summary=text('details','','teaching-review');summary.append(text('summary','教学完成 · 展开复习本关内容'));
-    summary.append(teachingChunks(teaching.chunks),text('h3','整句意思'),text('p',teaching.translation),text('h3','歌曲语境'),text('p',teaching.context),text('h3','文化与表达'),text('p',teaching.cultureNote,'teaching-note'));
+    summary.append(teachingChunks(teaching.chunks),text('h3','整句意思'),text('p',learnerCopy(teaching.translation)),text('h3','歌曲语境'),text('p',learnerCopy(teaching.context)),text('h3','文化与表达'),text('p',learnerCopy(teaching.cultureNote),'teaching-note'));
     content.append(text('p','你已完成目标、读音、词义和语境学习。现在进入脱离提示的地图考核。','teaching-complete'),summary);
   }
   if(['brief','reading','context'].includes(teaching.phase)){
@@ -217,6 +222,50 @@ function stopNotePlaybackRetry(){
   state.noteRetry?.cancel();state.noteRetry=null;
   if($('modalAudioStatus'))$('modalAudioStatus').textContent='';
 }
+const questionMetrics=new Map();
+function metricsFor(challenge){
+  const key=state.session.id+':'+challenge.id;
+  if(!questionMetrics.has(key))questionMetrics.set(key,{playRequests:0,playSuccesses:0,playFailures:0});
+  return questionMetrics.get(key);
+}
+const pendingQuestionPlayback=new Map();
+const heardQuestions=new Set();
+function updateListeningControls(challenge){
+  if(challenge.kind!=='note'||challenge.optionLineIds?.length===3||
+    state.modalId!==challenge.id||$('gameModal').hidden)return;
+  const line=state.node?.material?.lines?.find(item=>item.id===challenge.lineId);
+  const song=line&&state.node.material.songs.find(item=>item.id===line.songId);
+  if(!song?.provider)return;
+  const options=[...$('modalOptions').children];
+  if(options.some(button=>button.dataset.submitting==='true'))return;
+  const key=state.session.id+':'+challenge.id,pending=pendingQuestionPlayback.has(key);
+  for(const button of options)button.disabled=pending||!heardQuestions.has(key);
+  for(const button of $('modalAudioChoices').querySelectorAll('button'))button.disabled=pending;
+}
+function playQuestion(challenge,song,line){
+  const key=state.session.id+':'+challenge.id;
+  if(pendingQuestionPlayback.has(key)){
+    const pending=pendingQuestionPlayback.get(key);
+    return pending.lineId===line.id?pending.promise:Promise.resolve(false);
+  }
+  const metrics=metricsFor(challenge);
+  metrics.playRequests++;
+  const playback=Promise.resolve().then(async()=>{
+    try{
+      const played=await window.vibeMusic.playEvidence(song,line);
+      if(played){metrics.playSuccesses++;heardQuestions.add(key)}
+      else metrics.playFailures++;
+      return played;
+    }catch(error){metrics.playFailures++;throw error}
+    finally{
+      pendingQuestionPlayback.delete(key);
+      if(state.session?.id+':'+state.modalId===key)updateListeningControls(challenge);
+    }
+  });
+  pendingQuestionPlayback.set(key,{lineId:line.id,promise:playback});
+  updateListeningControls(challenge);
+  return playback;
+}
 function startNotePlaybackRetry(challenge){
   stopNotePlaybackRetry();
   if(challenge.kind!=='note')return;
@@ -230,7 +279,7 @@ function startNotePlaybackRetry(challenge){
     $('modalAudioStatus').textContent='播放器尚未就绪，请稍后重试。';return;
   }
   const controller=window.VibePlaybackRetry.create({
-    play:()=>window.vibeMusic.playEvidence(song,line),
+    play:()=>playQuestion(challenge,song,line),
     shouldContinue:()=>state.modalId===challenge.id&&!$('gameModal').hidden&&!$('study').hidden&&
       state.session?.status==='active'&&state.node?.room?.pending?.objectId===challenge.id,
     onAttempt:count=>{$('modalAudioStatus').textContent=count===1?'正在自动播放歌词…':`回听暂未成功，正在自动重试（第 ${count} 次）…`},
@@ -250,6 +299,7 @@ function showKnowledgeCard(card){
   $('gameModal').hidden=false;$('modalKind').textContent='KNOWLEDGE CARD';
   $('modalTitle').textContent=card.term||'知识卡';
   $('modalPrompt').textContent='这张卡片已收入探索行囊。';
+  $('modalAudioChoices').hidden=true;
   $('modalOptions').replaceChildren();$('modalFeedback').textContent='';
   const body=$('modalCard');body.hidden=false;body.replaceChildren();
   body.append(text('strong',card.term||'知识卡'));
@@ -266,42 +316,85 @@ function showChallenge(challenge){
   $('gameModal').hidden=false;
   $('modalKind').textContent=challenge.kind==='note'?'LISTEN & CHOOSE':'STORY ENCOUNTER';
   $('modalTitle').textContent=challenge.kind==='note'?'听音辨词':'情境抉择';
-  $('modalPrompt').textContent=challenge.prompt;
+  const line=state.node?.material?.lines?.find(item=>item.id===challenge.lineId);
+  const song=line&&state.node.material.songs.find(item=>item.id===line.songId);
+  const audioAvailable=challenge.optionLineIds?.length===3;
+  $('modalPrompt').textContent=learnerCopy(challenge.prompt);
   $('modalCard').hidden=true;$('modalFeedback').textContent='';
   $('modalOptions').replaceChildren();
+  $('modalOptions').hidden=audioAvailable;
+  $('modalAudioChoices').hidden=!audioAvailable;
+  $('modalAudioChoices').replaceChildren();
+  let playing=false;
+  if(audioAvailable)challenge.optionLineIds.forEach((id,index)=>{
+    const optionLine=state.node.material.lines.find(item=>item.id===id);
+    const optionSong=optionLine&&state.node.material.songs.find(item=>item.id===optionLine.songId);
+    const row=document.createElement('div');row.className='modal-audio-choice';
+    const play=text('button',`▶ 播放音频 ${String.fromCharCode(65+index)}`);
+    const choose=text('button',`选择 ${String.fromCharCode(65+index)}`);
+    choose.type='button';choose.disabled=true;choose.dataset.requiresPlayback='true';
+    choose.onclick=()=>{if(!playing)respondChallenge(challenge,index,choose)};
+    play.type='button';play.onclick=async()=>{
+      if(playing)return;
+      playing=true;
+      stopNotePlaybackRetry();$('modalAudioStatus').textContent=`正在播放音频 ${String.fromCharCode(65+index)}…`;
+      try{const played=await playQuestion(challenge,optionSong,optionLine);
+        if(state.modalId!==challenge.id||!choose.isConnected)return;
+        if(!played)throw Error('播放器未确认定位');
+        choose.dataset.played='true';choose.disabled=false;$('modalAudioStatus').textContent=`音频 ${String.fromCharCode(65+index)} 已开始播放，可以选择。`}
+      catch(error){if(state.modalId===challenge.id&&choose.isConnected)$('modalAudioStatus').textContent='播放失败：'+error.message}
+      finally{playing=false}
+    };
+    row.append(play,choose);$('modalAudioChoices').append(row);
+  });
   challenge.options.forEach((option,index)=>{
     const button=text('button',`${String.fromCharCode(65+index)} · ${option}`);
     button.type='button';button.onclick=()=>respondChallenge(challenge,index,button);
     $('modalOptions').append(button);
   });
-  if(challenge.kind==='note'&&!sameOpenChallenge)startNotePlaybackRetry(challenge);
+  if(challenge.kind==='note'&&!audioAvailable){
+    if(!sameOpenChallenge)startNotePlaybackRetry(challenge);
+    if(song?.provider){
+      const replay=text('button','▶ 重听原声');
+      replay.type='button';replay.onclick=()=>startNotePlaybackRetry(challenge);
+      $('modalAudioChoices').append(replay);$('modalAudioChoices').hidden=false;
+      updateListeningControls(challenge);
+    }
+  }
 }
 function applyServerNode(result){
   state.session=result.session;state.node=result.node;
   renderNode();renderGameState();renderMap();updateProgress();
 }
 async function respondChallenge(challenge,choice,button){
-  const buttons=[...$('modalOptions').children];if(buttons.some(item=>item.disabled))return;
+  const buttons=[...$('modalOptions').children,...$('modalAudioChoices').querySelectorAll('button')];
+  if(button.disabled||pendingQuestionPlayback.has(state.session.id+':'+challenge.id)||
+    buttons.some(item=>item.dataset.submitting==='true'))return;
+  stopNotePlaybackRetry();
+  button.dataset.submitting='true';
   buttons.forEach(item=>item.disabled=true);
   try{
     const result=await api('/api/respond','POST',{sessionId:state.session.id,nodeId:state.node.id,
-      submissionId:crypto.randomUUID(),choice});
+      submissionId:crypto.randomUUID(),choice,metrics:{...metricsFor(challenge)}});
+    questionMetrics.delete(state.session.id+':'+challenge.id);
     const correct=result.event.type==='correct';
     button.classList.add(correct?'is-correct':'is-wrong');
-    $('modalFeedback').textContent=result.event.message+(result.event.xpEarned?`　经验 +${result.event.xpEarned}`:'');
+    $('modalFeedback').textContent=learnerCopy(result.event.message)+(result.event.xpEarned?`　经验 +${result.event.xpEarned}`:'');
     if(correct){
       stopNotePlaybackRetry();
       applyServerNode(result);
-      addRoomLog('回答正确：'+result.event.message);
+      addRoomLog('回答正确：'+learnerCopy(result.event.message));
       closeGameModal();
     }else{
       state.session=result.session;state.node=result.node;renderGameState();renderMap();
-      buttons.forEach(item=>item.disabled=false);
+      buttons.forEach(item=>item.disabled=item.dataset.requiresPlayback==='true'&&item.dataset.played!=='true');delete button.dataset.submitting;
       button.classList.add('is-wrong');
+      updateListeningControls(challenge);
     }
   }catch(error){
     $('modalFeedback').textContent='提交失败：'+error.message;
-    buttons.forEach(item=>item.disabled=false);
+    buttons.forEach(item=>item.disabled=item.dataset.requiresPlayback==='true'&&item.dataset.played!=='true');delete button.dataset.submitting;
+    updateListeningControls(challenge);
   }
 }
 async function restartAdventure(button){
@@ -340,7 +433,8 @@ function showFinishChoice(){
   $('modalPrompt').textContent='接下来想重新生成一套知识关卡，还是返回音乐界面继续听歌？';
   $('modalCard').hidden=true;$('modalAudioStatus').textContent='';
   $('modalFeedback').textContent=state.session.mastery?.summary||'';
-  $('modalOptions').replaceChildren();
+  $('modalAudioChoices').hidden=true;$('modalAudioChoices').replaceChildren();
+  $('modalOptions').hidden=false;$('modalOptions').replaceChildren();
   const restart=text('button','重新来一遍（重新生成一遍知识关卡）');
   restart.type='button';restart.onclick=()=>restartAdventure(restart);
   const back=text('button','返回音乐界面');

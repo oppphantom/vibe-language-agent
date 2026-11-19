@@ -3,6 +3,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const config=require('../backend/agent/model-config');
 const {completeJson}=require('../backend/agent/llm');
+const {recordLesson}=require('../backend/agent/model');
 
 test.afterEach(()=>config.clearSession());
 
@@ -45,4 +46,21 @@ test('judge interface contains a model settings entry and key security copy',()=
   assert.match(html,/id="settingsTab"/);
   assert.match(html,/id="modelApiKey"/);
   assert.match(html,/只保存在本次本机服务进程/);
+});
+
+test('record lesson uses one lyric and adjacent lines without inventing missing fields',async()=>{
+  config.setSession({endpoint:'https://model.example/v1/chat/completions',model:'test',apiKey:'test',apiType:'chat_completions'});
+  let request;
+  const result=await recordLesson({profile:{level:'comfortable',goal:'meaning',minutes:5},line:'다시 만나',previous:'어제는 안녕',next:'함께 걸어',language:'ko'},async(_url,options)=>{
+    request=JSON.parse(options.body);
+    return {ok:true,json:async()=>({choices:[{message:{content:JSON.stringify({
+      reading:'다시 만나',meaning:'再次相见',translation:'再次见面',context:'前后句谈相遇和同行',
+      cultureNote:'仅凭这些歌词无法确定更多文化背景'
+    })}}]})};
+  });
+  assert.deepEqual(JSON.parse(request.messages[1].content).learnerProfile,{level:'comfortable',goal:'meaning',minutes:5});
+  assert.equal(result.lesson.translation,'再次见面');
+  assert.match(request.messages[1].content,/함께 걸어/);
+  await assert.rejects(recordLesson({line:'다시 만나',language:'ko'},async()=>({ok:true,json:async()=>({choices:[{message:{content:'{"reading":"a"}'}}]})})),
+    error=>error.code==='MODEL_OUTPUT');
 });

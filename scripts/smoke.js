@@ -101,7 +101,7 @@ async function main(){
           let choice=0;
           if(challenge.kind==='note'){
             const line=node.material.lines.find(item=>item.id===challenge.lineId);
-            choice=challenge.options.findIndex(option=>option===line?.text);
+            choice=challenge.optionLineIds?.indexOf(challenge.lineId)??challenge.options.indexOf(line?.text);
           }
           const answered=await call('/api/respond','POST',{sessionId:id,nodeId:node.id,
             submissionId:`${id}-respond-${responseCount++}`,choice:Math.max(0,choice)});
@@ -132,7 +132,7 @@ async function main(){
       }
       const finished=await call(`/api/sessions/${id}`);
       assert.equal(finished.data.status,'completed',`movement smoke stalled at ${node.id} in ${node.interaction}: ${node.room.collected}/${node.room.total}; ${node.room.tiles.join('|')}`);assert.equal(finished.data.language,song.language);
-      assert.ok(finished.data.game.cards.length>=1);assert.equal(finished.data.mastery.status,'mastered');
+      assert.ok(finished.data.game.cards.length>=1);assert.ok(['completed','needs_review'].includes(finished.data.mastery.status));
       if(includeErrors){
         const after=await call('/api/moves','POST',{
           sessionId:id,nodeId:finished.data.route[finished.data.route.length-1],submissionId:`${id}-after`,direction:'right'
@@ -176,7 +176,7 @@ async function main(){
         let choice=0;
         if(challenge.kind==='note'){
           const line=current.material.lines.find(item=>item.id===challenge.lineId);
-          choice=challenge.options.findIndex(option=>option===line?.text);
+          choice=challenge.optionLineIds?.indexOf(challenge.lineId)??challenge.options.indexOf(line?.text);
         }
         const answered=await call('/api/respond','POST',{sessionId:dynamicId,nodeId:current.id,
           submissionId:`${dynamicId}-respond-${dynamicResponseCount++}`,choice:Math.max(0,choice)});
