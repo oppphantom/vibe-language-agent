@@ -7,6 +7,80 @@
   const languageName={ko:'韩语',ja:'日语',zh:'中文'};
   const normal=s=>String(s||'').normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
   const offsetKey=song=>'vibe-music-offset:'+(song.provider||'apple')+':'+song.artist+':'+song.title;
+  const recordKey=song=>'vibe-record-notes:'+(song.provider||'apple')+':'+song.artist+':'+song.title+':'+song.durationMs;
+  let record=null;
+  function savedNotes(){try{return JSON.parse(localStorage.getItem(recordKey(state.song))||'{}')}catch{return {}}}
+  function renderRecordNotes(){
+    const notes=state.song?savedNotes():{};
+    $('recordNotesList').replaceChildren();$('recordCount').textContent=String(Object.keys(notes).length);
+    for(const line of state.lines){
+      if(!notes[line.id])continue;
+      const button=make('button',`${time(line.startMs)} · ${line.text}`,'record-note');
+      button.type='button';button.onclick=()=>openRecord(line,true);$('recordNotesList').append(button);
+    }
+    if(!$('recordNotesList').children.length)$('recordNotesList').append(make('p','解锁喜欢的歌词后，笔记会出现在这里。'));
+  }
+  function renderRecord(){
+    if(!record)return;
+    const stages=['01 / 听原声','02 / 学会读','03 / 理解这句','04 / 放回歌曲','05 / 再听一次'];
+    $('recordStep').textContent=stages[record.stage];$('recordLine').textContent=record.line.text;
+    const content=$('recordContent');content.replaceChildren();
+    if(record.stage===0)content.append(make('p','先听歌手唱这一句。听完后再逐层打开读音和意思。'));
+    if(record.stage===1)content.append(make('h3','怎么读'),make('p',record.lesson.reading));
+    if(record.stage===2)content.append(make('h3','这句是什么意思'),make('p',record.lesson.translation),make('p',record.lesson.meaning));
+    if(record.stage===3){
+      const index=state.lines.findIndex(line=>line.id===record.line.id);
+      content.append(make('h3','放回前后句'));
+      if(index>0)content.append(make('small','上一句'),make('p',state.lines[index-1].text));
+      content.append(make('small','当前句'),make('p',record.line.text));
+      if(index<state.lines.length-1)content.append(make('small','下一句'),make('p',state.lines[index+1].text));
+      content.append(make('p',record.lesson.context),make('p',record.lesson.cultureNote));
+    }
+    if(record.stage===4)content.append(make('h3','带着理解再听'),make('p','播放这一句后，这张歌词笔记就会加入你的唱片。'));
+    $('recordNext').textContent=record.stage===0?'打开读音':record.stage===4?'完成解锁':'继续解锁';
+    $('recordNext').disabled=(record.stage===0&&!record.firstPlayed)||(record.stage===4&&!record.replayed);
+    $('recordPlay').textContent=record.stage===4?'▶ 带着理解再听':'▶ 听这一句';
+  }
+  function openRecord(line,fromNotes=false){
+    if(!state.song||!Number.isInteger(line.endMs)||line.endMs<=line.startMs)return;
+    const lesson=fromNotes?savedNotes()[line.id]?.lesson:null;
+    record={line,song:state.song,profile:window.vibeLearning.profile(),stage:lesson?1:0,lesson,firstPlayed:!!lesson,busy:false};
+    $('recordPanel').hidden=false;$('recordProgress').textContent=lesson?'已解锁的笔记，可以逐层复习。':'先播放这句原声。';
+    renderRecord();$('recordPanel').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+  $('recordClose').onclick=()=>{$('recordPanel').hidden=true;record=null};
+  $('recordPlay').onclick=async()=>{
+    if(!record||record.busy)return;
+    const current=record,played=await play(current.song,current.line);
+    if(record!==current)return;
+    if(!played){$('recordProgress').textContent='原声播放未成功，请检查客户端连接后重试。';return}
+    current.firstPlayed=true;if(current.stage===4)current.replayed=true;
+    $('recordProgress').textContent='已定位原声；可以按自己的节奏再听或继续。';renderRecord();
+  };
+  $('recordNext').onclick=async()=>{
+    if(!record||record.busy)return;
+    const current=record;
+    if(current.stage===0){
+      if(!current.firstPlayed)return;
+      current.busy=true;$('recordNext').disabled=true;$('recordProgress').textContent='正在为这句歌词生成读音和语境讲解…';
+      const index=state.lines.findIndex(line=>line.id===current.line.id);
+      try{const result=await request('/api/agent/record-lesson','POST',{line:current.line.text,
+        previous:state.lines[index-1]?.text||'',next:state.lines[index+1]?.text||'',language:current.song.language,profile:current.profile});
+        if(record!==current)return;current.lesson=result.lesson;current.stage=1;$('recordProgress').textContent='读音讲解已准备好。';
+      }catch(error){if(record===current)$('recordProgress').textContent='讲解生成失败：'+error.message}
+      finally{current.busy=false;if(record===current)renderRecord()}
+      return;
+    }
+    if(current.stage<4){current.stage++;renderRecord();return}
+    if(!current.replayed){$('recordProgress').textContent='请先带着理解再听一次。';return}
+    const notes=savedNotes();notes[current.line.id]={lesson:current.lesson};
+    try{localStorage.setItem(recordKey(current.song),JSON.stringify(notes))}
+    catch(error){$('recordProgress').textContent='笔记保存失败：'+error.message;return}
+    $('recordProgress').textContent='这句已加入你的歌词笔记。回到歌词继续听吧。';renderRecordNotes();
+    $('recordPanel').hidden=true;record=null;
+    $('recordSavedStatus').textContent='已保存这句歌词笔记，可随时点开复习。';
+    $('recordNotesTitle').scrollIntoView({behavior:'smooth',block:'center'});
+  };
   const make=(tag,value,className)=>{const el=document.createElement(tag);el.textContent=value;if(className)el.className=className;return el};
   const learningLanguage=()=>$('learningLanguage')?.value||'ko';
   const languageClass=code=>`language-text language-${['ko','ja','zh'].includes(code)?code:'ko'}`;
@@ -25,7 +99,7 @@
   window.addEventListener('resize',()=>shelfPairs.forEach(pair=>updateShelfScroll(...pair)));
   document.addEventListener('learning-language-change',()=>{
     if(!state.song||state.song.language===learningLanguage())return;
-    state.song=null;state.lines=[];$('musicStudy').hidden=true;$('systemControls').hidden=true;
+    state.song=null;state.lines=[];record=null;$('recordPanel').hidden=true;$('musicStudy').hidden=true;$('systemControls').hidden=true;
     $('musicStatus').textContent='学习语言已切换，请按新语言重新选择歌曲并检索歌词。';
   });
   const time=ms=>{const s=Math.floor(ms/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
@@ -277,8 +351,9 @@
   };
   async function selectSong(song){
     song.language=song.language||learningLanguage();song.provider=song.provider||state.provider;
-    state.song=song;state.lines=[];$('musicStudy').hidden=false;
+    state.song=song;state.lines=[];record=null;$('recordPanel').hidden=true;$('recordNotesList').replaceChildren();$('recordCount').textContent='0';$('musicStudy').hidden=false;
     $('musicLearning').hidden=true;$('planStatus').textContent='';
+    $('analysisResults').replaceChildren();$('analysisStatus').textContent='正在载入歌词…';
     $('musicSongTitle').textContent=`${song.title} · ${song.artist} · ${languageName[song.language]||'韩语'}`;
     $('systemControls').hidden=!song.provider||song.provider==='apple'||!song.playbackVerified;
     $('musicPlayback').textContent='选择一句歌词开始播放。';
@@ -296,22 +371,52 @@
       if(song.provider==='netease'&&data.song?.source?.id)song.providerId=String(data.song.source.id);
       if(song.provider==='netease'&&song.playbackVerified)showCurrentSong(song);
       $('musicSource').textContent=`${data.source} · ${data.lines.length} 行歌词${song.provider&&song.provider!=='apple'&&!song.playbackVerified?`；请先在${providerName[song.provider]}客户端播放这首歌，再连接当前音乐来源。`:''}`;
-      for(const line of data.lines){const button=document.createElement('button');button.type='button';button.className='lyric-row';
+      for(const line of data.lines){const row=document.createElement('div');row.className='lyric-study-row';
+        const button=document.createElement('button');button.type='button';button.className='lyric-row';
         button.append(make('span',time(line.startMs)),make('strong',line.text,languageClass(song.language)));
         button.disabled=line.endMs===null||(song.provider&&song.provider!=='apple'&&!song.playbackVerified);
         button.title=line.endMs===null?'缺少句末时间，不能自动暂停':song.provider&&song.provider!=='apple'&&!song.playbackVerified?'当前仅预览歌词；连接正在播放的同一版本后可逐句播放':`在${providerName[song.provider||'apple']}播放这一句`;
-        button.onclick=()=>play(song,line);$('musicLyrics').append(button)}
+        button.onclick=()=>play(song,line);
+        const unlock=make('button','解锁这句','record-unlock');unlock.type='button';unlock.disabled=button.disabled;
+        unlock.onclick=()=>openRecord(line);row.append(button,unlock);$('musicLyrics').append(row)}
+      renderRecordNotes();
+      refreshAnalysis();
       $('musicLearning').hidden=false;
       if(!state.modelConfigured)$('planStatus').textContent='模型未配置：仍然可以播放和查看歌词，但不能生成真实歌曲课程。';
     }catch(error){if(state.song===song)$('musicSource').textContent='同步歌词检索失败：'+error.message}
   }
+  let analysisRequest=0;
+  async function refreshAnalysis(){
+    const requestId=++analysisRequest,song=state.song,lines=state.lines;
+    $('analysisResults').replaceChildren();
+    if(!song||!lines.length){$('analysisStatus').textContent='载入歌词后查看推荐。';return}
+    $('analysisStatus').textContent='正在分析歌词片段…';
+    try{
+      const result=await request('/api/agent/analyze','POST',{song,lines,profile:window.vibeLearning.profile()});
+      if(requestId!==analysisRequest||song!==state.song||lines!==state.lines)return;
+      $('analysisStatus').textContent=result.basis;
+      for(const id of result.recommendedLineIds){
+        const line=lines.find(item=>item.id===id),feature=result.fragments.find(item=>item.lineId===id);
+        const card=make('div','','analysis-fragment');
+        card.append(make('strong',time(line.startMs)+' · '+line.text));
+        card.append(make('p',feature.reasons.join('；')));
+        card.append(make('small',feature.characters+' 个文字字符 · '+(feature.durationMs/1000).toFixed(1)+' 秒 · 文字密度 '+feature.textDensity+' 字符/秒'));
+        const button=make('button','学习这句');button.type='button';
+        button.disabled=song.provider!=='apple'&&!song.playbackVerified;
+        button.onclick=()=>openRecord(line);card.append(button);
+        $('analysisResults').append(card);
+      }
+      if(!result.recommendedLineIds.length)$('analysisStatus').textContent='没有找到同时包含所选语言文字且时间区间完整的片段，请检查学习语言与歌曲。';
+    }catch(error){if(requestId===analysisRequest&&song===state.song)$('analysisStatus').textContent='片段分析失败：'+error.message}
+  }
+  document.addEventListener('learner-profile-change',refreshAnalysis);
   $('planSong').onclick=async()=>{
-    const song=state.song,lines=state.lines;
+    const song=state.song,lines=state.lines,startedAt=Date.now();
     if(!song||!lines.length){$('planStatus').textContent='请先载入同步歌词。';return}
     const button=$('planSong');button.disabled=true;
     $('planStatus').textContent='正在创建课程生成任务…';
     try{
-      const plan=await window.vibePlanJob.run(request,{song,lines,language:song.language},message=>{$('planStatus').textContent=message});
+      const plan=await window.vibePlanJob.run(request,{song,lines,language:song.language,profile:window.vibeLearning.profile()},message=>{$('planStatus').textContent=message+'（已等待 '+Math.floor((Date.now()-startedAt)/1000)+' 秒）'});
       if(state.song!==song||state.lines!==lines){$('planStatus').textContent='歌曲或歌词已切换，本次生成结果没有打开。';return}
       $('planStatus').textContent=`课程已准备好，正在打开「${plan.title}」。`;
       await window.vibeStudy.startCourse(plan.courseId);
