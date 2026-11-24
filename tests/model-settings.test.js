@@ -44,5 +44,7 @@ test('judge interface contains a model settings entry and key security copy',()=
   const html=require('node:fs').readFileSync(require('node:path').join(__dirname,'../frontend/index.html'),'utf8');
   assert.match(html,/id="settingsTab"/);
   assert.match(html,/id="modelApiKey"/);
-  assert.match(html,/只保存在本次本机服务进程/);
+  assert.match(html,/密钥只保存在本次 Node\.js 服务进程的内存中/);
+  assert.match(html,/接口地址（完整请求 URL）/);
+  assert.match(html,/不是服务商主页/);
 });

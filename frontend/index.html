@@ -23,43 +23,49 @@
   <span class="spark s4"></span><span class="spark s5"></span><span class="spark s6"></span>
 </div>
 
-<main class="shell">
-  <header>
-    <div class="top-meta">
-      <div class="eyebrow">VIBE RECORDS / LANGUAGE AGENT</div>
-      <div class="hero-strip" aria-hidden="true"><span>SIDE A · 한 · 日 · 中 · KO / JA / ZH</span></div>
+<header class="app-bar" id="top">
+  <div class="app-bar__inner">
+    <a class="app-bar__brand" href="#top">
+      <span class="app-bar__mark">VIBE RECORDS</span>
+      <span class="app-bar__sub">LANGUAGE AGENT</span>
+    </a>
+    <nav class="app-bar__tabs" role="tablist" aria-label="模式">
+      <button id="musicTab" class="active" type="button" role="tab" aria-selected="true" aria-controls="music">开始学习</button>
+      <button id="studyTab" type="button" role="tab" aria-selected="false" aria-controls="study" aria-disabled="true" aria-describedby="studyTabHint">学习地图</button>
+    </nav>
+    <div class="app-bar__language">
+      <label for="learningLanguage">学习语言</label>
+      <select id="learningLanguage">
+        <option value="ko">韩语</option>
+        <option value="ja">日语</option>
+        <option value="zh">中文</option>
+      </select>
+      <span id="languageStatus" class="sr-only">当前学习韩语</span>
     </div>
-    <h1>再给我一首歌的时间</h1>
-    <p>连接音乐软件，按句听原声</p>
-  </header>
-
-  <nav aria-label="模式">
-    <button id="musicTab" class="active" type="button">我的音乐资料库</button>
-    <button id="studyTab" type="button" disabled>歌曲学习地图</button>
-    <button id="settingsTab" type="button">模型设置</button>
-  </nav>
-  <div class="language-switch">
-    <label for="learningLanguage">学习语言</label>
-    <select id="learningLanguage">
-      <option value="ko">韩语</option>
-      <option value="ja">日语</option>
-      <option value="zh">中文</option>
-    </select>
-    <span id="languageStatus">课程、歌词与解释共用当前语言</span>
+    <div class="app-bar__model">
+      <div id="modelStatusStrip" class="model-strip" role="status" aria-live="polite">
+        <span id="modelStatusTag" class="tag">模型未连接</span>
+        <span id="modelStatusHint" class="sr-only">仅影响自有歌曲。</span>
+      </div>
+      <button id="settingsTab" type="button" class="app-bar__settings" aria-controls="settings" aria-pressed="false">模型设置</button>
+    </div>
+    <p id="studyTabHint" class="sr-only">完成样例或课程后，这里打开当前学习地图。</p>
   </div>
+</header>
 
+<main class="shell" id="main">
   <section id="settings" hidden>
-    <div class="section-head"><span>模型设置</span><span id="modelStatusTag" class="tag">未连接</span></div>
+    <div class="section-head"><span id="settingsHeading" tabindex="-1">模型设置</span></div>
     <div class="settings-layout">
-      <div class="agent-box settings-intro">
+      <div class="settings-intro">
         <small>BRING YOUR OWN MODEL</small>
         <h2>连接你的模型服务</h2>
-        <p>配置成功后，Agent 才能根据真实歌词选择学习表达、生成教学包并设计歌曲地下城。</p>
+        <p>连接后，Agent 可根据真实歌词选择表达、编写教学并设计关卡。</p>
         <ol>
-          <li>选择服务商或自定义兼容接口。</li>
-          <li>填写模型名称和 API Key。</li>
-          <li>点击“测试并保存本次配置”。</li>
-          <li>返回音乐页，载入歌词并生成学习地图。</li>
+          <li>选择接口预设；其他兼容服务选“自定义兼容接口”。</li>
+          <li>填写完整接口地址、服务商文档里的模型 ID 和 API Key。</li>
+          <li>点击“测试并保存本次配置”，成功后立即生效。</li>
+          <li>返回「开始学习」，载入歌词后即可开始。</li>
         </ol>
       </div>
       <form id="modelSettingsForm" class="agent-box settings-form">
@@ -76,20 +82,21 @@
             <option value="responses">Responses</option>
           </select>
         </label>
-        <label>接口地址
+        <label>接口地址（完整请求 URL）
           <input id="modelEndpoint" type="url" value="https://api.openai.com/v1/chat/completions" maxlength="500" required spellcheck="false">
         </label>
-        <label>模型名称
-          <input id="modelName" maxlength="160" placeholder="例如 gpt-4.1-mini" required spellcheck="false">
+        <p class="field-note">要填实际接收请求的完整地址，不是服务商主页。例如 DeepSeek：https://api.deepseek.com/chat/completions；OpenAI：https://api.openai.com/v1/chat/completions。仅支持 HTTPS，且不能包含账号、查询参数或 # 片段，也不能指向 localhost 或本机 IP。</p>
+        <label>模型名称（Model ID）
+          <input id="modelName" maxlength="160" placeholder="服务商文档中的 ID，如 deepseek-flash" required spellcheck="false">
         </label>
         <label>API Key
           <input id="modelApiKey" type="password" maxlength="5000" placeholder="只用于本次本机服务" required autocomplete="new-password" spellcheck="false">
         </label>
-        <p class="security-note">密钥只保存在本次本机服务进程的内存中，不写入网页存储、磁盘、日志或 Git；关闭 Node.js 服务后自动清除。页面不会读回完整密钥。</p>
+        <p class="security-note">“测试并保存”会向填写的地址真实发送一次小请求，Key 必须有效且有可用额度。密钥只保存在本次 Node.js 服务进程的内存中，不写入网页存储、磁盘、日志或 Git；关闭服务后自动清除，页面不会读回完整密钥。</p>
         <div class="controls">
           <button id="testModelConfig" type="submit">测试并保存本次配置</button>
           <button id="clearModelConfig" type="button" class="secondary">清除本次配置</button>
-          <button id="settingsBack" type="button" class="secondary">返回音乐页</button>
+          <button id="settingsBack" type="button" class="secondary">返回开始学习</button>
         </div>
         <p id="modelSettingsStatus" role="status">正在读取模型配置状态…</p>
       </form>
@@ -97,92 +104,164 @@
   </section>
 
   <section id="music">
-    <div class="section-head"><span>01 / 连接音乐软件</span><span class="tag">本机播放</span></div>
-    <p>Windows 可直接导入 QQ 公开歌单与网易云本机歌单，并从网页点播、跳转或逐句播放；macOS 继续使用系统媒体桥和客户端链接。所有歌单与播放控制只在本机处理。</p>
-    <div class="controls">
-      <label>音乐来源
-        <select id="musicProvider">
-          <option value="apple">Mac「音乐」</option>
-          <option value="qqmusic">QQ 音乐</option>
-          <option value="netease">网易云音乐</option>
-        </select>
-      </label>
-      <button id="connectMusic" type="button">连接当前音乐来源</button>
-      <label id="libraryArtistLabel">歌手（可选）<input id="libraryArtist" placeholder="留空读取全部歌曲" maxlength="80"></label>
-      <button id="loadLibrary" type="button">读取全部资料库歌曲</button>
-    </div>
-    <p id="musicStatus" role="status">尚未检查本机「音乐」。</p>
-    <div id="musicSongs" class="song-grid"></div>
-    <input id="musicSongsScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览 Mac 音乐资料库歌曲" hidden>
-
-    <div id="qqLibraryPanel" hidden>
-      <button id="qqLibrary" type="button">读取我在 QQ 音乐的歌曲</button>
-      <form id="qqPlaylistForm">
-        <label>QQ 公开歌单链接或 ID<input id="qqPlaylistValue" value="7039749142" maxlength="200" required></label>
-        <button type="submit">导入完整歌单</button>
-      </form>
-      <label>筛选歌曲<input id="qqLibraryFilter" placeholder="歌名或歌手"></label>
-      <p id="qqLibraryStatus" role="status"></p>
-      <div id="qqLibraryResults" class="song-grid"></div>
-      <input id="qqLibraryScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览 QQ 音乐歌曲" hidden>
-    </div>
-
-    <div id="neteaseSearch" hidden>
-      <button id="neteaseLibrary" type="button">读取我在网易云的歌曲</button>
-      <button id="neteasePlaylists" type="button">导入本机歌单</button>
-      <label id="neteasePlaylistLabel" hidden>已导入歌单<select id="neteasePlaylistSelect"></select></label>
-      <form id="neteaseSearchForm">
-        <label>或搜索网易云歌曲<input id="neteaseQuery" value="RIIZE Love 119" maxlength="80" required></label>
-        <button type="submit">搜索歌曲</button>
-      </form>
-      <p id="neteaseSearchStatus" role="status"></p>
-      <div id="neteaseResults" class="song-grid"></div>
-      <input id="neteaseScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览网易云音乐歌曲" hidden>
-    </div>
-
-    <div id="musicStudy" hidden>
-      <div class="section-head"><span>02 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div>
-      <p id="musicSource"></p>
-      <label>歌词时间偏移（秒）<input id="musicOffset" type="number" step="0.1" value="0"></label>
-      <div id="systemControls" class="controls" hidden>
-        <button id="systemPrevious" type="button">上一首</button>
-        <button id="systemNext" type="button">下一首</button>
-        <button id="systemPlay" type="button">继续播放</button>
-        <button id="systemPause" type="button">暂停</button>
-        <label>跳到第几秒<input id="systemJumpSeconds" type="number" min="0" step="0.1" value="0"></label>
-        <button id="systemJump" type="button">跳转并播放</button>
+    <section class="hero" aria-labelledby="heroTitle">
+      <h1 id="heroTitle">再给我一首歌的时间</h1>
+      <p class="lede">把一首歌，变成一节能玩的语言课。</p>
+      <p class="hero-support">连接音乐软件，按句听原声；Agent 选表达、写教学、设计关卡。</p>
+      <div class="hero-actions">
+        <button id="startSample" type="button">先体验样例课程</button>
+        <button id="goLibrary" type="button" class="secondary">用自己的歌</button>
       </div>
-      <p id="musicPlayback" role="status">选择一句歌词开始播放。</p>
-      <div id="musicLyrics" class="lyric-list"></div>
-      <div id="musicLearning" class="agent-box">
-        <h2>从这首歌进入语境学习</h2>
-        <p>从当前歌词中选择重点表达，依次完成拆读、语境理解、原声听辨与探索挑战。</p>
-        <button id="planSong" type="button" disabled>生成歌曲学习地图</button>
-        <p id="planStatus" role="status"></p>
-      </div>
+      <p class="hero-note">样例为原创教学文本，不含音源；样例课程无需模型。</p>
+    </section>
+
+    <p class="section-kicker">Agent 能做什么</p>
+    <div class="capability-grid" aria-label="产品能力">
+      <article class="capability-card">
+        <h3>逐句听原声</h3>
+        <p>连接 QQ 音乐、网易云或 Mac「音乐」，点一行歌词，定位本句并在句末暂停。</p>
+      </article>
+      <article class="capability-card">
+        <h3>先教后考</h3>
+        <p>先拆读、讲语境，再用带提示练习检查；答错回到薄弱点。</p>
+      </article>
+      <article class="capability-card">
+        <h3>19×9 歌词地下城</h3>
+        <p>在字符房间收集歌词与知识卡，用「串词成句」完成终关。</p>
+      </article>
     </div>
 
-    <div class="agent-box">
-      <h2>Discover · 跨歌曲找语境</h2>
-      <p>检索当前歌手资料库里重复出现的表达，保留上下句与逐句原声。</p>
-      <form id="discoverForm">
-        <label>目标语言歌词表达<input id="discoverQuery" value="다시" maxlength="40" required></label>
-        <button type="submit">寻找其他歌曲中的语境</button>
-      </form>
-      <p id="discoverStatus" role="status"></p>
-      <p id="discoverPlayback" role="status"></p>
-      <div id="discoverResults"></div>
-    </div>
+    <section id="sampleCourse" aria-labelledby="sampleHeading">
+      <div class="section-head"><span id="sampleHeading">01 / 快速体验</span><span class="tag">原创教学样例 · 非实时 Agent 生成</span></div>
+      <div id="sampleSongs" class="song-grid sample-grid"></div>
+      <p id="sampleStatus" role="status">选择一首样例，直接进入完整课程。</p>
+    </section>
+
+    <section id="musicLibrary">
+      <div class="section-head"><span>02 / 用你自己的歌</span><span class="tag">本机播放</span></div>
+      <p>读取当前歌曲或歌单；匹配同步歌词后，可按句听原声，并开始自己的课程。</p>
+      <ol id="stepRail" class="step-rail" aria-label="学习流程">
+        <li class="step is-active" data-step="choose" aria-current="step"><span class="step__text"><strong>选歌</strong><small>样例或自己的歌</small></span></li>
+        <li class="step" data-step="listen"><span class="step__text"><strong>听原声</strong><small>同步歌词</small></span></li>
+        <li class="step" data-step="generate"><span class="step__text"><strong>开始课程</strong><small>模型就绪后</small></span></li>
+      </ol>
+      <p id="stepStatus" class="sr-only" role="status" aria-live="polite">当前步骤：选歌。可以先体验样例，或连接本地音乐。</p>
+      <details class="platform-note">
+        <summary>平台与隐私说明</summary>
+        <p>Windows 可直接导入 QQ 公开歌单与网易云本机歌单，并从网页点播、跳转或逐句播放；macOS 继续使用系统媒体桥和客户端链接。</p>
+      </details>
+      <div class="controls">
+        <label>音乐来源
+          <select id="musicProvider">
+            <option value="apple">Mac「音乐」</option>
+            <option value="qqmusic">QQ 音乐</option>
+            <option value="netease">网易云音乐</option>
+          </select>
+        </label>
+        <button id="connectMusic" type="button">连接本地音乐</button>
+        <label id="libraryArtistLabel">歌手（可选）<input id="libraryArtist" placeholder="留空读取全部歌曲" maxlength="80"></label>
+        <button id="loadLibrary" type="button">读取全部资料库歌曲</button>
+      </div>
+      <p id="musicStatus" role="status">尚未检查本机「音乐」。</p>
+      <div id="musicSongs" class="song-grid"></div>
+      <input id="musicSongsScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览 Mac 音乐资料库歌曲" hidden>
+
+      <div id="qqLibraryPanel" hidden>
+        <button id="qqLibrary" type="button">读取我在 QQ 音乐的歌曲</button>
+        <details class="advanced-panel">
+          <summary>导入 QQ 公开歌单 / 筛选歌曲</summary>
+          <form id="qqPlaylistForm">
+            <label>QQ 公开歌单链接或 ID<input id="qqPlaylistValue" placeholder="粘贴公开歌单链接或 ID" maxlength="200" required></label>
+            <button type="submit">导入完整歌单</button>
+          </form>
+          <label>筛选歌曲<input id="qqLibraryFilter" placeholder="歌名或歌手"></label>
+        </details>
+        <p id="qqLibraryStatus" role="status"></p>
+        <div id="qqSongActions" class="song-actions" hidden></div>
+        <div id="qqLibraryResults" class="song-grid"></div>
+        <input id="qqLibraryScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览 QQ 音乐歌曲" hidden>
+      </div>
+
+      <div id="neteaseSearch" hidden>
+        <button id="neteaseLibrary" type="button">读取我在网易云的歌曲</button>
+        <details class="advanced-panel">
+          <summary>导入本机歌单 / 搜索歌曲</summary>
+          <button id="neteasePlaylists" type="button">导入本机歌单</button>
+          <label id="neteasePlaylistLabel" hidden>已导入歌单<select id="neteasePlaylistSelect"></select></label>
+          <form id="neteaseSearchForm">
+            <label>或搜索网易云歌曲<input id="neteaseQuery" placeholder="例如 RIIZE Love 119" maxlength="80" required></label>
+            <button type="submit">搜索歌曲</button>
+          </form>
+        </details>
+        <p id="neteaseSearchStatus" role="status"></p>
+        <div id="neteaseSongActions" class="song-actions" hidden></div>
+        <div id="neteaseResults" class="song-grid"></div>
+        <input id="neteaseScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览网易云音乐歌曲" hidden>
+      </div>
+    </section>
+
+    <section id="musicStudy" class="is-locked" aria-disabled="true" aria-describedby="musicStudyLockText">
+      <div class="section-head"><span>03 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div>
+      <div id="musicStudyLock" class="study-lock lock-line" role="status">
+        <span class="tag">锁定</span>
+        <p id="musicStudyLockText">连接本地音乐并读取当前歌曲后，这里会自动解锁。</p>
+      </div>
+      <div id="musicStudyBody" hidden>
+        <p id="musicSource"></p>
+        <label>歌词时间偏移（秒）<input id="musicOffset" type="number" step="0.1" value="0"></label>
+        <div id="systemControls" class="controls" hidden>
+          <button id="systemPrevious" type="button">上一首</button>
+          <button id="systemNext" type="button">下一首</button>
+          <button id="systemPlay" type="button">继续播放</button>
+          <button id="systemPause" type="button">暂停</button>
+          <label>跳到第几秒<input id="systemJumpSeconds" type="number" min="0" step="0.1" value="0"></label>
+          <button id="systemJump" type="button">跳转并播放</button>
+        </div>
+        <p id="musicPlayback" role="status">选择一句歌词开始播放。</p>
+        <div id="musicLyrics" class="lyric-list"></div>
+        <div id="musicLearning" class="agent-box learning-cta">
+          <h2>把这首歌变成学习地图</h2>
+          <p>Agent 会从同步歌词里选表达、写教学、设计关卡。</p>
+          <div class="learning-cta__actions">
+            <button id="planSong" type="button" disabled>生成学习地图</button>
+            <button id="openModelFromStudy" type="button" hidden>配置模型</button>
+            <button id="goSampleFromStudy" type="button" class="secondary">先体验样例课程</button>
+          </div>
+          <ol id="planPhases" class="plan-phases" hidden aria-label="生成阶段">
+            <li data-phase="analyzing_lyrics">分析歌词</li>
+            <li data-phase="generating_teaching">生成教学</li>
+            <li data-phase="designing_dungeon">设计关卡</li>
+          </ol>
+          <p id="planStatus" role="status" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <details class="edge-drawer" id="discoverDrawer">
+      <summary>Discover · 跨歌曲找语境 <span class="tag">仅 Mac「音乐」</span></summary>
+      <div class="agent-box is-secondary panel--flat">
+        <p>检索当前歌手资料库里重复出现的表达，保留上下句与逐句原声。</p>
+        <form id="discoverForm">
+          <label>目标语言歌词表达<input id="discoverQuery" value="다시" maxlength="40" required></label>
+          <button type="submit">寻找其他歌曲中的语境</button>
+        </form>
+        <p id="discoverStatus" role="status"></p>
+        <p id="discoverPlayback" role="status"></p>
+        <div id="discoverResults"></div>
+      </div>
+    </details>
   </section>
 
   <section id="study" hidden>
     <div class="study-topbar">
       <div class="controls">
-        <button id="studyBack" type="button">返回音乐界面</button>
-        <span id="studyCourseTitle" class="tag">歌曲语境学习</span>
+        <button id="studyBack" type="button">返回开始学习</button>
+        <span id="studyCourseTitle" class="tag" tabindex="-1">歌曲语境学习</span>
       </div>
-      <span id="progress"></span>
+      <span id="progress" aria-live="polite"></span>
     </div>
+    <p id="studyProvenance" class="provenance-line"></p>
+    <p class="session-note">本轮进度保存在本机 Node.js 服务进程内；关闭或重启服务后失效。</p>
     <div id="lesson" hidden>
       <div class="game-hud" aria-label="游戏状态">
         <span><b id="gameXp">0</b> 经验</span>
