@@ -971,15 +971,23 @@ button:focus-visible,a:focus-visible,nav button:focus-visible{outline:3px solid 
 }
 @keyframes glass-rainbow{to{--glass-angle:360deg}}
 
-/* Edge：保留彩虹描边外观，但停掉 @property 持续旋转（与歌架 backdrop-filter 叠加重合成） */
-html.is-edge :is(.song-card,.question,.source,.agent-box,.context-card)::before{
-  animation:none;
-  --glass-angle:32deg;
+/* Edge：保留毛玻璃与彩虹边，但降低模糊半径/饱和度，减轻与天空合成成本 */
+html.is-edge{
+  --glass-blur:10px;
+  --glass-chip-blur:6px;
+  --glass-sat:1.18;
+  --glass-bg:rgba(255,255,255,.58);
+  --glass-bg-hover:rgba(255,255,255,.66);
+  --glass-chip-bg:rgba(255,255,255,.52);
+  --glass-rainbow-speed:42s;
+  --glass-rainbow-opacity:.28;
 }
-html.is-edge :is(#musicSongs,#qqLibraryResults,#neteaseResults)>.song-card{
-  /* 观感仍是毛玻璃；略降模糊半径减轻对动态天空的逐帧重采样 */
-  -webkit-backdrop-filter:blur(12px) saturate(var(--glass-sat));
-  backdrop-filter:blur(12px) saturate(var(--glass-sat));
+html.is-edge.has-dense-glass{
+  --glass-blur:7px;
+  --glass-sat:1.08;
+}
+html.is-edge.has-dense-glass :is(#musicSongs,#qqLibraryResults,#neteaseResults)>.song-card{
+  --glass-blur:6px;
 }
 
 @media (hover:hover){

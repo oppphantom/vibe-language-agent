@@ -613,16 +613,21 @@ function randomCode(length){let value='';for(let i=0;i<length;i++)value+=CODE_CH
 function initCodeEffect(host,length){
   if(!canHover||reduceMotion||codeHosts.has(host))return;
   codeHosts.add(host);
+  const isEdge=document.documentElement.classList.contains('is-edge');
   const tag=host.matches('button,.client-play-link')?'span':'div';
   const glow=document.createElement(tag);
   glow.className='card-glow';glow.setAttribute('aria-hidden','true');
   const code=document.createElement(tag);
   code.className='card-code';code.setAttribute('aria-hidden','true');code.textContent=randomCode(length);
   host.prepend(glow);host.prepend(code);host.classList.add('has-code');
-  let targetX=0,targetY=0,currentX=0,currentY=0,frame=0,lastCode=0;
+  let targetX=0,targetY=0,currentX=0,currentY=0,frame=0,lastCode=0,lastMove=0;
+  // Edge：更快收敛 + 更低采样，保留跟随光晕但减少重绘次数
+  const lerp=isEdge?.36:.2;
+  const codeInterval=isEdge?480:220;
+  const moveInterval=isEdge?33:0;
   const paint=()=>{host.style.setProperty('--mx',currentX+'px');host.style.setProperty('--my',currentY+'px')};
   const tick=()=>{
-    currentX+=(targetX-currentX)*.2;currentY+=(targetY-currentY)*.2;paint();
+    currentX+=(targetX-currentX)*lerp;currentY+=(targetY-currentY)*lerp;paint();
     frame=Math.abs(targetX-currentX)>.5||Math.abs(targetY-currentY)>.5?requestAnimationFrame(tick):0;
   };
   host.addEventListener('pointerenter',event=>{
@@ -632,10 +637,13 @@ function initCodeEffect(host,length){
     paint();code.textContent=randomCode(length);
   });
   host.addEventListener('pointermove',event=>{
+    if(document.documentElement.classList.contains('is-tab-switching'))return;
+    if(moveInterval&&event.timeStamp-lastMove<moveInterval)return;
+    lastMove=event.timeStamp;
     const rect=host.getBoundingClientRect();
     targetX=event.clientX-rect.left;targetY=event.clientY-rect.top;
     if(!frame)frame=requestAnimationFrame(tick);
-    if(event.timeStamp-lastCode>220){lastCode=event.timeStamp;code.textContent=randomCode(length)}
+    if(event.timeStamp-lastCode>codeInterval){lastCode=event.timeStamp;code.textContent=randomCode(length)}
   });
 }
 document.addEventListener('pointerover',event=>{

@@ -198,8 +198,7 @@ void main(){
   const uTime=gl.getUniformLocation(program,'uTime');
 
   const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-  // Edge 对「每帧 WebGL + 多层 backdrop-filter」合成特别重；Cursor 内置浏览器通常不受影响。
-  // 降内部分辨率并用 CSS 拉伸，焦散观感几乎不变；滚动时冻结最后一帧避免连带重模糊。
+  // Edge：保留流动天空，但降分辨率 + 降帧率，并在滚动/切页时暂停，避免和毛玻璃抢合成。
   const isEdge=/\bEdg\/\d/i.test(navigator.userAgent)||/\bEdge\/\d/i.test(navigator.userAgent);
   if(isEdge)document.documentElement.classList.add('is-edge');
   const maxDpr=isEdge?1:1.5;
@@ -211,10 +210,11 @@ void main(){
   let running=false;
   let scrolling=false;
   let scrollTimer=0;
-  // 普通 12fps；歌架密集时约 0.5fps（焦散极慢，观感接近连续，但几乎不再触发玻璃重模糊）
   function targetFps(){
-    if(!isEdge)return 30;
-    return document.documentElement.classList.contains('has-dense-glass')?0.5:12;
+    const root=document.documentElement;
+    if(root.classList.contains('has-dense-glass'))return isEdge?8:16;
+    if(scrolling)return isEdge?6:12;
+    return isEdge?12:30;
   }
 
   function resize(){
@@ -246,13 +246,13 @@ void main(){
 
   function startLoop(){
     if(running||document.hidden||reduceMotion.matches||scrolling)return;
+    if(document.documentElement.classList.contains('is-tab-switching'))return;
     running=true;
     raf=requestAnimationFrame(frame);
   }
 
   function frame(now){
     raf=0;
-    // 顶栏切页时暂停车空重绘，把 GPU 让给按钮过渡
     if(document.hidden||reduceMotion.matches||scrolling||document.documentElement.classList.contains('is-tab-switching')){
       running=false;return;
     }
@@ -261,16 +261,24 @@ void main(){
     if(lastDraw<0||seconds-lastDraw>=1/targetFps())draw(seconds);
     raf=requestAnimationFrame(frame);
   }
-  // 歌架密度 / 切页标记变化时重排循环
+
+  function paintStatic(){
+    stopLoop();
+    if(!started)started=performance.now();
+    draw(8.5);
+  }
+
   new MutationObserver(()=>{
     if(document.documentElement.classList.contains('is-tab-switching')){stopLoop();return}
-    if(!reduceMotion.matches){if(isEdge)lastDraw=-1;startLoop()}
+    if(!reduceMotion.matches)startLoop();
   }).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
 
   host.classList.add('is-live');
   resize();
-  window.addEventListener('resize',resize,{passive:true});
-  // 滚动期间冻结天空：玻璃模糊不再跟着每帧 WebGL 重算（Edge 卡顿主因）
+  window.addEventListener('resize',()=>{
+    resize();
+    if(reduceMotion.matches)paintStatic();
+  },{passive:true});
   document.addEventListener('scroll',()=>{
     scrolling=true;
     stopLoop();
@@ -278,12 +286,12 @@ void main(){
     scrollTimer=setTimeout(()=>{
       scrolling=false;
       if(!reduceMotion.matches)startLoop();
-    },160);
+    },isEdge?220:160);
   },{passive:true,capture:true});
   if(reduceMotion.matches){
-    draw(0);
+    paintStatic();
     reduceMotion.addEventListener('change',()=>{
-      if(reduceMotion.matches){stopLoop();draw(0)}
+      if(reduceMotion.matches)paintStatic();
       else{started=0;lastDraw=-1;startLoop()}
     });
   }else{

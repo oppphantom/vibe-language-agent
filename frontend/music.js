@@ -248,7 +248,7 @@
       if(!data.running){
         $('musicStatus').textContent=provider==='apple'?'请先启动 Mac「音乐」，然后再点击连接。':
           provider==='netease'&&state.platform==='win32'
-            ?'未检测到网易云正在播放。请先在客户端点播放；若是微软商店版，逐句控制通常不可用，请改用官网桌面版并用 --remote-debugging-port=9222 启动。'
+            ?'未检测到网易云正在播放。请先在资料库点播一首歌，或在客户端开始播放后再连接；微软商店版也可控制，首次连接时可能会自动以调试方式重启客户端。'
             :`系统当前播放来源是${providerName[data.activeSource]||'其他应用'}。请在${providerName[provider]}播放目标歌曲，再点击连接。`;
         if(pending)retryPendingSong(pending,provider,'当前还没有检测到目标客户端。');return}
 

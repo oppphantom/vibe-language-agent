@@ -3,26 +3,35 @@ const {execFile}=require('node:child_process');
 const {promisify}=require('node:util');
 const {join}=require('node:path');
 const {homedir}=require('node:os');
-const {existsSync,readFileSync,readdirSync}=require('node:fs');
+const {existsSync,readFileSync,readdirSync,statSync}=require('node:fs');
 const runFile=promisify(execFile);
 const database=join(homedir(),'Library/Containers/com.netease.163music/Data/Documents/storage/sqlite_storage.sqlite3');
 const localAppData=()=>process.env.LOCALAPPDATA||join(homedir(),'AppData/Local');
+function webdbSize(root){
+  try{
+    const file=join(root,'Library/webdb.dat');
+    return existsSync(file)?statSync(file).size:0;
+  }catch{return 0}
+}
 // 传统安装版：%LOCALAPPDATA%\NetEase\CloudMusic
 // 微软商店版：%LOCALAPPDATA%\Packages\<pkg>\LocalCache\Local\NetEase\CloudMusic
+// 若两边都有库，优先选更大的（避免商店桥接启动后留下的空库抢优先级）
 function windowsCloudMusicRoot(local=localAppData()){
   const classic=join(local,'NetEase/CloudMusic');
-  if(existsSync(join(classic,'Library/webdb.dat')))return classic;
+  const candidates=[];
+  if(webdbSize(classic)>0)candidates.push(classic);
   const packages=join(local,'Packages');
   if(existsSync(packages)){
     try{
       for(const name of readdirSync(packages)){
         if(!/1F8B0F94|NetEase|CloudMusic|163music/i.test(name))continue;
         const root=join(packages,name,'LocalCache/Local/NetEase/CloudMusic');
-        if(existsSync(join(root,'Library/webdb.dat')))return root;
+        if(webdbSize(root)>0)candidates.push(root);
       }
     }catch{}
   }
-  return classic;
+  if(!candidates.length)return classic;
+  return candidates.sort((a,b)=>webdbSize(b)-webdbSize(a))[0];
 }
 function windowsPaths(local=localAppData()){
   const root=windowsCloudMusicRoot(local);
