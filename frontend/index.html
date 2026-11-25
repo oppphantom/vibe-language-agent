@@ -200,6 +200,21 @@
       </div>
     </section>
 
+    <section class="agent-box lean" aria-labelledby="learnerTitle">
+      <h2 id="learnerTitle">这次想怎么学</h2>
+      <div class="controls">
+        <label>阅读基础<select id="learnerLevel"><option value="starter">刚开始认识文字</option><option value="beginner" selected>能读一点，连句吃力</option><option value="comfortable">能读歌词，想加强理解</option></select></label>
+        <label>本次目标<select id="learnerGoal"><option value="listening">听原声认出歌词</option><option value="reading">把歌词读顺</option><option value="meaning">理解歌词语境</option></select></label>
+        <label>时间预算<select id="learnerMinutes"><option value="5">约 5 分钟</option><option value="10" selected>约 10 分钟</option><option value="15">约 15 分钟</option></select></label>
+      </div>
+      <p id="learnerStatus" role="status">目标会用于推荐歌词片段和生成下一次课程。</p>
+    </section>
+    <details class="agent-box lean">
+      <summary>我的学习记录</summary>
+      <p id="learningRecordSummary"></p>
+      <p id="learningRecordStatus" role="status" class="quiet"></p>
+      <div id="learningRecordList" class="learning-record-list"></div>
+    </details>
     <section id="musicStudy" class="is-locked" aria-disabled="true" aria-describedby="musicStudyLockText">
       <div class="section-head"><span>03 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div>
       <div id="musicStudyLock" class="study-lock lock-line" role="status">
@@ -218,7 +233,20 @@
           <button id="systemJump" type="button">跳转并播放</button>
         </div>
         <p id="musicPlayback" role="status">选择一句歌词开始播放。</p>
-        <div id="musicLyrics" class="lyric-list"></div>
+      <section class="agent-box lean" aria-labelledby="analysisTitle">
+        <h2 id="analysisTitle">推荐片段</h2>
+        <p id="analysisStatus" role="status" class="quiet"></p>
+        <div id="analysisResults"></div>
+      </section>
+      <div id="musicLyrics" class="lyric-list"></div>
+      <section id="recordPanel" class="record-panel" hidden aria-labelledby="recordTitle">
+        <div class="record-panel__head"><div><small id="recordStep">01 / LISTEN</small><h2 id="recordTitle">歌词解锁</h2></div><button id="recordClose" type="button">返回</button></div>
+        <p id="recordLine" class="record-panel__line"></p>
+        <p id="recordProgress" role="status"></p>
+        <div id="recordContent" class="record-panel__content"></div>
+        <div class="record-panel__actions"><button id="recordPlay" type="button">▶ 听这一句</button><button id="recordNext" type="button">下一步</button></div>
+      </section>
+      <section class="record-notes" aria-labelledby="recordNotesTitle"><h3 id="recordNotesTitle">歌词笔记 <span id="recordCount">0</span></h3><p id="recordSavedStatus" role="status" class="quiet"></p><div id="recordNotesList"></div></section>
         <div id="musicLearning" class="agent-box learning-cta">
           <h2>把这首歌变成学习地图</h2>
           <p>Agent 会从同步歌词里选表达、写教学、设计关卡。</p>
@@ -307,13 +335,13 @@
               <h3 id="roomObjective"></h3>
               <div id="finalPlaybackControls" class="final-playback-controls" hidden>
                 <button id="playFinalLine" type="button">▶ 再听一遍</button>
-                <span>每次只播放一遍，句末自动暂停</span>
+                <span class="quiet">句末自动暂停</span>
               </div>
               <p id="roomProgress" class="room-progress"></p>
               <p id="roomPhrase" class="room-phrase" hidden></p>
               <div class="key-guide" aria-label="操作说明">
                 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
-                <span>或方向键移动</span>
+                <span>移动</span>
               </div>
               <div class="move-pad" aria-label="触屏移动控制">
                 <button type="button" data-direction="up" aria-label="向上">↑</button>
@@ -321,32 +349,30 @@
                 <button type="button" data-direction="down" aria-label="向下">↓</button>
                 <button type="button" data-direction="right" aria-label="向右">→</button>
               </div>
-              <p class="key-guide-note">踩到字符自动触发。被噪声精灵碰到会退回一步。</p>
+              <p class="key-guide-note quiet">踩格触发 · 噪声精灵会撞退</p>
             </aside>
           </div>
           <p id="feedback" class="room-event" role="status"></p>
           <details class="evidence-drawer">
-            <summary>查看本关歌词与证据</summary>
+            <summary>本关证据</summary>
             <div id="source" class="source"></div>
           </details>
           <div class="room-log-wrap">
-            <div class="section-head"><span>探索记录</span><span>最近发生</span></div>
+            <div class="section-head"><span>记录</span></div>
             <ol id="roomLog" class="room-log"></ol>
           </div>
         </div>
       </div>
       <div id="rewardToast" class="reward-toast" hidden></div>
       <div class="inventory-panel">
-        <div class="section-head"><span>探索行囊</span><span>知识卡会随本轮路线收集</span></div>
-        <div id="gameInventory" class="inventory-grid"><p>还没有收集知识卡。</p></div>
+        <div class="section-head"><span>行囊</span><span class="quiet">知识卡</span></div>
+        <div id="gameInventory" class="inventory-grid"><p class="quiet">尚未收集。</p></div>
       </div>
-      <p id="studyPlayback" role="status"></p>
+      <p id="studyPlayback" role="status" class="quiet"></p>
     </div>
   </section>
 
-  <footer>
-    VIBE RECORDS · Learn the language. Feel the music.
-  </footer>
+  <footer>VIBE RECORDS</footer>
 </main>
 
 <div id="gameModal" class="game-modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
@@ -356,6 +382,7 @@
     <h2 id="modalTitle"></h2>
     <p id="modalPrompt"></p>
     <div id="modalCard" class="knowledge-card" hidden></div>
+    <div id="modalAudioChoices" class="modal-audio-choices" hidden></div>
     <div id="modalOptions" class="modal-options"></div>
     <p id="modalAudioStatus" role="status"></p>
     <p id="modalFeedback" role="status"></p>
@@ -367,6 +394,7 @@
 <script src="/play-once.js" defer></script>
 <script src="/plan-phases.js" defer></script>
 <script src="/plan-job.js" defer></script>
+<script src="/learning.js" defer></script>
 <script src="/app.js" defer></script>
 <script src="/music.js" defer></script>
 </body>

@@ -71,7 +71,11 @@ function makeNode(level,index,count,course) {
 
 function createDungeonGame(course,lineCatalog) {
   const dungeon=course.dungeon||fallbackDungeon(course,lineCatalog);
-  const nodes=dungeon.levels.map((level,index)=>makeNode(level,index,dungeon.levels.length+1,course));
+  const playableSongs=new Set(course.materials?.songs.filter(song=>song.provider).map(song=>song.id));
+  const playableLineIds=new Set(lineCatalog.filter(line=>playableSongs.has(line.songId)).map(line=>line.id));
+  const nodes=dungeon.levels.map((level,index)=>({
+    ...makeNode(level,index,dungeon.levels.length+1,course),playableLineIds
+  }));
   const finalLine=lineCatalog.find(line=>line.id===dungeon.final.lineId);
   if(!finalLine)throw Error('串词成句歌词不存在');
   const finalIndex=nodes.length;
@@ -128,15 +132,24 @@ function createRoom(node) {
 
 function objectAt(room,x,y){return room.objects.find(object=>object.x===x&&object.y===y&&!room.resolved.includes(object.id))}
 function allResolved(room){return room.objects.every(object=>room.resolved.includes(object.id))}
-function publicChallenge(object){
+function publicChallenge(object,node,random){
   if(object.kind==='note'||object.kind==='npc'){
     const entity=object.entity;
-    return {id:object.id,kind:object.kind,label:entity.label||'',prompt:entity.prompt,options:[...entity.options],lineId:entity.lineId};
+    const challenge={id:object.id,kind:object.kind,label:entity.label||'',prompt:entity.prompt,
+      options:[...entity.options],lineId:entity.lineId};
+    if(object.kind!=='note')return challenge;
+    if(node.playableLineIds.has(entity.lineId))challenge.prompt='听这段原声，选择对应的歌词。';
+    if(entity.optionLineIds?.length===3&&entity.optionLineIds.every(id=>node.playableLineIds.has(id))&&random()<0.5){
+      challenge.prompt=`哪段原声唱的是这句歌词？「${entity.options[entity.correctIndex]}」`;
+      challenge.options=[];
+      challenge.optionLineIds=[...entity.optionLineIds];
+    }
+    return challenge;
   }
   return null;
 }
 
-function moveRoom(node,room,direction) {
+function moveRoom(node,room,direction,random=Math.random) {
   if(room.pending)return {room,event:{type:'pending',message:'先完成眼前的问题，再继续移动。'},completed:false,noise:false};
   const delta={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}[direction];
   if(!delta)throw Error('移动方向无效');
@@ -150,8 +163,9 @@ function moveRoom(node,room,direction) {
   let event={type:'move',message:'继续探索'};
   if(object){
     if(object.kind==='note'||object.kind==='npc'){
-      next.pending={objectId:object.id,kind:object.kind,challenge:publicChallenge(object)};
-      event={type:'challenge',message:object.kind==='note'?'听音辨词开始。':'角色提出了一个情境问题。',challenge:publicChallenge(object)};
+      const challenge=publicChallenge(object,node,random);
+      next.pending={objectId:object.id,kind:object.kind,challenge};
+      event={type:'challenge',message:object.kind==='note'?'听音辨词开始。':'角色提出了一个情境问题。',challenge};
     }else if(object.kind==='card'){
       next.resolved.push(object.id);
       event={type:'card',message:`获得知识卡「${object.entity.card.term}」`,card:{id:object.id,...object.entity.card}};
@@ -184,7 +198,7 @@ function respondRoom(node,room,choice) {
   const object=room.objects.find(item=>item.id===room.pending.objectId);
   if(!object)throw Error('题目对象不存在');
   const entity=object.entity,correct=choice===entity.correctIndex;
-  if(!correct)return {room,correct:false,event:{type:'retry',message:entity.explanation,challenge:publicChallenge(object)}};
+  if(!correct)return {room,correct:false,event:{type:'retry',message:entity.explanation,challenge:room.pending.challenge}};
   const next={...room,pending:null,resolved:[...room.resolved,object.id]};
   return {room:next,correct:true,event:{type:'correct',message:entity.explanation,lineId:entity.lineId||null}};
 }

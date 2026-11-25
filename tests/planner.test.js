@@ -82,12 +82,14 @@ test('model adapter rejects unsafe endpoints and unusable JSON responses',async(
 
 test('planner turns real-song material into a private variable-level dungeon plan',async()=>{
   const requests=[],phases=[];
-  const result=await planner.plan({song,lines,language:'ja'},{
+  const result=await planner.plan({song,lines,language:'ja',profile:{level:'starter',goal:'reading',minutes:5}},{
     completeJsonImpl:async input=>{
       requests.push(input);
       return structuredClone(fakeCourse);
     },
     dungeonGenerator:async(course,{lines:material,completeJsonImpl})=>{
+      assert.equal(course.learnerProfile.goal,'reading');
+      assert.equal(course.analysis.recommendedLineIds.length,2);
       await completeJsonImpl({system:'dungeon',user:'material',timeoutMs:120000});
       return fallbackDungeon(course,material);
     },
@@ -100,6 +102,8 @@ test('planner turns real-song material into a private variable-level dungeon pla
   assert.deepEqual(phases,['analyzing_lyrics','generating_teaching','designing_dungeon','completed']);
   assert.match(requests[0].system,/listening、meaning、story、culture、rest、challenge/);
   const sentMaterial=JSON.parse(requests[0].user);
+  assert.deepEqual(sentMaterial.learnerProfile,{level:'starter',goal:'reading',minutes:5});
+  assert.equal(sentMaterial.recommendedLineIds.length,2);
   assert.equal(sentMaterial.song.title,song.title);assert.equal(sentMaterial.lines.length,4);
 
   const created=session.begin({courseId:result.courseId});

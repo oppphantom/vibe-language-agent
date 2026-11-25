@@ -1,5 +1,5 @@
 'use strict';
-const {execFile,spawn}=require('node:child_process');
+const {execFile,execFileSync,spawn}=require('node:child_process');
 const {promisify}=require('node:util');
 const {join}=require('node:path');
 const {existsSync}=require('node:fs');
@@ -16,11 +16,26 @@ function qqPath(){return executable([
   join(process.env['ProgramFiles(x86)']||'C:/Program Files (x86)','Tencent/QQMusic/QQMusic.exe'),
   'D:/Program Files/Tencent/QQMusic/QQMusic.exe',
 ],'QQ 音乐')}
-function neteasePath(){return executable([
-  join(process.env.ProgramFiles||'C:/Program Files','NetEase/CloudMusic/cloudmusic.exe'),
-  join(process.env['ProgramFiles(x86)']||'C:/Program Files (x86)','NetEase/CloudMusic/cloudmusic.exe'),
-],'网易云音乐')}
+function runningNeteasePath(){
+  try{
+    const stdout=execFileSync('powershell.exe',[
+      '-NoProfile','-Command',
+      '(Get-Process cloudmusic -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Path)'
+    ],{encoding:'utf8',timeout:4000,windowsHide:true,maxBuffer:1024*1024});
+    const path=String(stdout||'').trim();
+    return path&&existsSync(path)?path:null;
+  }catch{return null}
+}
+function neteasePath(){
+  const running=runningNeteasePath();
+  if(running)return running;
+  return executable([
+    join(process.env.ProgramFiles||'C:/Program Files','NetEase/CloudMusic/cloudmusic.exe'),
+    join(process.env['ProgramFiles(x86)']||'C:/Program Files (x86)','NetEase/CloudMusic/cloudmusic.exe'),
+  ],'网易云音乐');
+}
 function detached(file,args){const child=spawn(file,args,{detached:true,stdio:'ignore',windowsHide:true});child.unref()}
+function openProtocol(url){detached('cmd.exe',['/c','start','',url])}
 function sessions(value){if(!value)return [];return Array.isArray(value)?value:[value]}
 
 function createCdp({fetchImpl=fetch,WebSocketImpl=globalThis.WebSocket,wait=sleep,port=9222,getSong=async id=>(await neteaseLibrary.library()).find(song=>song.id===String(id)),evaluateImpl}={}){
@@ -118,10 +133,17 @@ function createBridge({runPowerShell,launch=detached,wait=sleep,cdp=createCdp(),
   async function openTrack(source,song){
     if(!labels[source]||!/^\d{1,20}$/.test(String(song?.id||'')))throw Error('歌曲 ID 无效');
     if(source==='qqmusic')launch(resolveQqPath(),['/playbysongid',`cmd_count==1&&id_0==${song.id}&&songtype_0==0`]);
-    else if(song.playlistId&&song.playlistId!=='current-queue')await cdp.jump(song.playlistId,song.id,Number.isInteger(song.trackIndex)?song.trackIndex:undefined);
-    else {
+    else if(song.playlistId&&song.playlistId!=='current-queue'){
+      try{await cdp.jump(song.playlistId,song.id,Number.isInteger(song.trackIndex)?song.trackIndex:undefined)}
+      catch(error){
+        const command='orpheus://'+Buffer.from(JSON.stringify({type:'song',id:String(song.id),cmd:'play'})).toString('base64');
+        openProtocol(command);
+        throw Error(`${error.message}；已尝试用 orpheus 协议打开。商店版请用官网桌面客户端，并以 --remote-debugging-port=9222 启动后再点播`);
+      }
+    }else {
       const command='orpheus://'+Buffer.from(JSON.stringify({type:'song',id:String(song.id),cmd:'play'})).toString('base64');
-      launch(resolveNeteasePath(),[`--webcmd=${command}`]);
+      try{launch(resolveNeteasePath(),[`--webcmd=${command}`])}
+      catch{openProtocol(command)}
     }
     return {ok:true,source,trackId:String(song.id)};
   }

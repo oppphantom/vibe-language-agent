@@ -3,11 +3,36 @@ const {execFile}=require('node:child_process');
 const {promisify}=require('node:util');
 const {join}=require('node:path');
 const {homedir}=require('node:os');
-const {existsSync,readFileSync}=require('node:fs');
+const {existsSync,readFileSync,readdirSync}=require('node:fs');
 const runFile=promisify(execFile);
 const database=join(homedir(),'Library/Containers/com.netease.163music/Data/Documents/storage/sqlite_storage.sqlite3');
-const windowsDatabase=join(process.env.LOCALAPPDATA||join(homedir(),'AppData/Local'),'NetEase/CloudMusic/Library/webdb.dat');
-const windowsQueue=join(process.env.LOCALAPPDATA||join(homedir(),'AppData/Local'),'NetEase/CloudMusic/webdata/file/playingList');
+const localAppData=()=>process.env.LOCALAPPDATA||join(homedir(),'AppData/Local');
+// 传统安装版：%LOCALAPPDATA%\NetEase\CloudMusic
+// 微软商店版：%LOCALAPPDATA%\Packages\<pkg>\LocalCache\Local\NetEase\CloudMusic
+function windowsCloudMusicRoot(local=localAppData()){
+  const classic=join(local,'NetEase/CloudMusic');
+  if(existsSync(join(classic,'Library/webdb.dat')))return classic;
+  const packages=join(local,'Packages');
+  if(existsSync(packages)){
+    try{
+      for(const name of readdirSync(packages)){
+        if(!/1F8B0F94|NetEase|CloudMusic|163music/i.test(name))continue;
+        const root=join(packages,name,'LocalCache/Local/NetEase/CloudMusic');
+        if(existsSync(join(root,'Library/webdb.dat')))return root;
+      }
+    }catch{}
+  }
+  return classic;
+}
+function windowsPaths(local=localAppData()){
+  const root=windowsCloudMusicRoot(local);
+  return {
+    databasePath:join(root,'Library/webdb.dat'),
+    queuePath:join(root,'webdata/file/playingList')
+  };
+}
+const windowsDatabase=windowsPaths().databasePath;
+const windowsQueue=windowsPaths().queuePath;
 const query=`SELECT d.id, d.jsonStr
 FROM playlistTrackIds AS p,
      json_each(p.jsonStr, '$.trackIds') AS item
@@ -35,8 +60,11 @@ function decodeTrack(id,item,extra={}){
   if(!/^\d{1,20}$/.test(String(id))||!title||!Number.isFinite(durationMs)||durationMs<1000||durationMs>3600000)return null;
   return {id:String(id),title,artist,album,durationMs,provider:'netease',...extra};
 }
-function windowsPlaylists({databasePath=windowsDatabase,queuePath=windowsQueue,DatabaseSyncImpl}={}){
-  if(!existsSync(databasePath))throw Error('找不到网易云 Windows 本地歌单数据库；请先登录并同步歌单');
+function windowsPlaylists({databasePath,queuePath,DatabaseSyncImpl}={}){
+  const resolved=windowsPaths();
+  databasePath=databasePath||resolved.databasePath;
+  queuePath=queuePath||resolved.queuePath;
+  if(!existsSync(databasePath))throw Error('找不到网易云 Windows 本地歌单数据库；请确认已安装桌面版或商店版并登录，打开「我的歌单」完成同步');
   if(!DatabaseSyncImpl){try{({DatabaseSync:DatabaseSyncImpl}=require('node:sqlite'))}catch{throw Error('Windows 歌单读取需要 Node.js 22 或更高版本')}}
   const db=new DatabaseSyncImpl(databasePath,{readOnly:true});
   try{
@@ -75,4 +103,4 @@ async function library(run){
     throw error;
   }
 }
-module.exports={library,decode,windowsPlaylists,decodeTrack};
+module.exports={library,decode,windowsPlaylists,decodeTrack,windowsPaths,windowsCloudMusicRoot};
