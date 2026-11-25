@@ -29,7 +29,7 @@
     const correct=first.filter(item=>item.correct).length;
     $('learningRecordSummary').textContent=entries.length?
       '已记录 '+entries.length+' 次作答；首次作答正确 '+correct+'/'+first.length+'。记录保存在当前浏览器。':
-      '完成教学检查或地图题后，这里会显示逐题表现。记录保存在当前浏览器。';
+      '完成后会显示逐题表现。';
     $('learningRecordList').replaceChildren();
     for(const entry of entries.slice(0,100)){
       const row=document.createElement('p');

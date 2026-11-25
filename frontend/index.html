@@ -26,11 +26,11 @@
 <main class="shell">
   <header>
     <div class="top-meta">
-      <div class="eyebrow">VIBE RECORDS / LANGUAGE AGENT</div>
-      <div class="hero-strip" aria-hidden="true"><span>SIDE A · 한 · 日 · 中 · KO / JA / ZH</span></div>
+      <div class="eyebrow">VIBE RECORDS</div>
+      <div class="hero-strip" aria-hidden="true"><span>SIDE A · KO / JA / ZH</span></div>
     </div>
     <h1>再给我一首歌的时间</h1>
-    <p>连接音乐软件，按句听原声</p>
+    <p class="lede">按句听原声，把喜欢的歌变成一堂课</p>
   </header>
 
   <nav aria-label="模式">
@@ -116,31 +116,31 @@
     <input id="musicSongsScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览 Mac 音乐资料库歌曲" hidden>
 
     <div id="qqLibraryPanel" hidden>
-      <button id="qqLibrary" type="button">读取我在 QQ 音乐的歌曲</button>
+      <button id="qqLibrary" type="button">读取本机 QQ 歌曲</button>
       <form id="qqPlaylistForm">
-        <label>QQ 公开歌单链接或 ID<input id="qqPlaylistValue" value="7039749142" maxlength="200" required></label>
-        <button type="submit">导入完整歌单</button>
+        <label>公开歌单链接或 ID<input id="qqPlaylistValue" value="7039749142" maxlength="200" required></label>
+        <button type="submit">导入歌单</button>
       </form>
-      <label>筛选歌曲<input id="qqLibraryFilter" placeholder="歌名或歌手"></label>
-      <p id="qqLibraryStatus" role="status"></p>
+      <label>筛选<input id="qqLibraryFilter" placeholder="歌名或歌手"></label>
+      <p id="qqLibraryStatus" role="status" class="quiet"></p>
       <div id="qqLibraryResults" class="song-grid"></div>
       <input id="qqLibraryScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览 QQ 音乐歌曲" hidden>
     </div>
 
     <div id="neteaseSearch" hidden>
-      <button id="neteaseLibrary" type="button">读取我在网易云的歌曲</button>
+      <button id="neteaseLibrary" type="button">读取本机网易云</button>
       <button id="neteasePlaylists" type="button">导入本机歌单</button>
       <label id="neteasePlaylistLabel" hidden>已导入歌单<select id="neteasePlaylistSelect"></select></label>
       <form id="neteaseSearchForm">
-        <label>或搜索网易云歌曲<input id="neteaseQuery" value="RIIZE Love 119" maxlength="80" required></label>
-        <button type="submit">搜索歌曲</button>
+        <label>搜索<input id="neteaseQuery" value="RIIZE Love 119" maxlength="80" required></label>
+        <button type="submit">搜索</button>
       </form>
-      <p id="neteaseSearchStatus" role="status"></p>
+      <p id="neteaseSearchStatus" role="status" class="quiet"></p>
       <div id="neteaseResults" class="song-grid"></div>
       <input id="neteaseScroll" class="shelf-scroll" type="range" min="0" max="0" value="0" aria-label="横向浏览网易云音乐歌曲" hidden>
     </div>
 
-    <section class="agent-box" aria-labelledby="learnerTitle">
+    <section class="agent-box lean" aria-labelledby="learnerTitle">
       <h2 id="learnerTitle">这次想怎么学</h2>
       <div class="controls">
         <label>阅读基础<select id="learnerLevel"><option value="starter">刚开始认识文字</option><option value="beginner" selected>能读一点，连句吃力</option><option value="comfortable">能读歌词，想加强理解</option></select></label>
@@ -149,57 +149,54 @@
       </div>
       <p id="learnerStatus" role="status">目标会用于推荐歌词片段和生成下一次课程。</p>
     </section>
-    <details class="agent-box">
+    <details class="agent-box lean">
       <summary>我的学习记录</summary>
       <p id="learningRecordSummary"></p>
-      <p id="learningRecordStatus" role="status"></p>
+      <p id="learningRecordStatus" role="status" class="quiet"></p>
       <div id="learningRecordList" class="learning-record-list"></div>
     </details>
     <div id="musicStudy" hidden>
-      <div class="section-head"><span>02 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div>
-      <p id="musicSource"></p>
-      <label>歌词时间偏移（秒）<input id="musicOffset" type="number" step="0.1" value="0"></label>
+      <div class="section-head"><span>02 · 歌词</span><span id="musicSongTitle"></span></div>
+      <p id="musicSource" class="quiet"></p>
+      <label>时间偏移（秒）<input id="musicOffset" type="number" step="0.1" value="0"></label>
       <div id="systemControls" class="controls" hidden>
         <button id="systemPrevious" type="button">上一首</button>
         <button id="systemNext" type="button">下一首</button>
-        <button id="systemPlay" type="button">继续播放</button>
+        <button id="systemPlay" type="button">继续</button>
         <button id="systemPause" type="button">暂停</button>
-        <label>跳到第几秒<input id="systemJumpSeconds" type="number" min="0" step="0.1" value="0"></label>
-        <button id="systemJump" type="button">跳转并播放</button>
+        <label>跳到（秒）<input id="systemJumpSeconds" type="number" min="0" step="0.1" value="0"></label>
+        <button id="systemJump" type="button">跳转</button>
       </div>
-      <p id="musicPlayback" role="status">选择一句歌词开始播放。</p>
-      <div class="record-entry"><span>唱片解锁 · 从喜欢的一句开始</span><p>听原声、学会读、理解前后句，再带着新理解回听。</p></div>
-      <section class="agent-box" aria-labelledby="analysisTitle">
-        <h2 id="analysisTitle">适合先学的片段</h2>
-        <p id="analysisStatus" role="status"></p>
+      <p id="musicPlayback" role="status" class="quiet">点选一句开始。</p>
+      <section class="agent-box lean" aria-labelledby="analysisTitle">
+        <h2 id="analysisTitle">推荐片段</h2>
+        <p id="analysisStatus" role="status" class="quiet"></p>
         <div id="analysisResults"></div>
       </section>
       <div id="musicLyrics" class="lyric-list"></div>
       <section id="recordPanel" class="record-panel" hidden aria-labelledby="recordTitle">
-        <div class="record-panel__head"><div><small id="recordStep">01 / LISTEN</small><h2 id="recordTitle">歌词解锁</h2></div><button id="recordClose" type="button">返回歌词</button></div>
+        <div class="record-panel__head"><div><small id="recordStep">01 / LISTEN</small><h2 id="recordTitle">歌词解锁</h2></div><button id="recordClose" type="button">返回</button></div>
         <p id="recordLine" class="record-panel__line"></p>
         <p id="recordProgress" role="status"></p>
         <div id="recordContent" class="record-panel__content"></div>
         <div class="record-panel__actions"><button id="recordPlay" type="button">▶ 听这一句</button><button id="recordNext" type="button">下一步</button></div>
       </section>
-      <section class="record-notes" aria-labelledby="recordNotesTitle"><h3 id="recordNotesTitle">我的歌词笔记 <span id="recordCount">0</span></h3><p id="recordSavedStatus" role="status"></p><div id="recordNotesList"></div></section>
-      <div id="musicLearning" class="agent-box">
-        <h2>从这首歌进入语境学习</h2>
-        <p>从当前歌词中选择重点表达，依次完成拆读、语境理解、原声听辨与探索挑战。</p>
-        <button id="planSong" type="button" disabled>生成歌曲学习地图</button>
-        <p id="planStatus" role="status"></p>
+      <section class="record-notes" aria-labelledby="recordNotesTitle"><h3 id="recordNotesTitle">歌词笔记 <span id="recordCount">0</span></h3><p id="recordSavedStatus" role="status" class="quiet"></p><div id="recordNotesList"></div></section>
+      <div id="musicLearning" class="agent-box lean">
+        <h2>生成学习地图</h2>
+        <button id="planSong" type="button" disabled>开始生成</button>
+        <p id="planStatus" role="status" class="quiet"></p>
       </div>
     </div>
 
-    <div class="agent-box">
-      <h2>Discover · 跨歌曲找语境</h2>
-      <p>检索当前歌手资料库里重复出现的表达，保留上下句与逐句原声。</p>
+    <div class="agent-box lean">
+      <h2>Discover</h2>
       <form id="discoverForm">
-        <label>目标语言歌词表达<input id="discoverQuery" value="다시" maxlength="40" required></label>
-        <button type="submit">寻找其他歌曲中的语境</button>
+        <label>表达<input id="discoverQuery" value="다시" maxlength="40" required></label>
+        <button type="submit">跨歌曲检索</button>
       </form>
-      <p id="discoverStatus" role="status"></p>
-      <p id="discoverPlayback" role="status"></p>
+      <p id="discoverStatus" role="status" class="quiet"></p>
+      <p id="discoverPlayback" role="status" class="quiet"></p>
       <div id="discoverResults"></div>
     </div>
   </section>
@@ -207,8 +204,8 @@
   <section id="study" hidden>
     <div class="study-topbar">
       <div class="controls">
-        <button id="studyBack" type="button">返回音乐界面</button>
-        <span id="studyCourseTitle" class="tag">歌曲语境学习</span>
+        <button id="studyBack" type="button">返回音乐</button>
+        <span id="studyCourseTitle" class="tag">学习地图</span>
       </div>
       <span id="progress"></span>
     </div>
@@ -257,13 +254,13 @@
               <h3 id="roomObjective"></h3>
               <div id="finalPlaybackControls" class="final-playback-controls" hidden>
                 <button id="playFinalLine" type="button">▶ 再听一遍</button>
-                <span>每次只播放一遍，句末自动暂停</span>
+                <span class="quiet">句末自动暂停</span>
               </div>
               <p id="roomProgress" class="room-progress"></p>
               <p id="roomPhrase" class="room-phrase" hidden></p>
               <div class="key-guide" aria-label="操作说明">
                 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>
-                <span>或方向键移动</span>
+                <span>移动</span>
               </div>
               <div class="move-pad" aria-label="触屏移动控制">
                 <button type="button" data-direction="up" aria-label="向上">↑</button>
@@ -271,32 +268,30 @@
                 <button type="button" data-direction="down" aria-label="向下">↓</button>
                 <button type="button" data-direction="right" aria-label="向右">→</button>
               </div>
-              <p class="key-guide-note">踩到字符自动触发。被噪声精灵碰到会退回一步。</p>
+              <p class="key-guide-note quiet">踩格触发 · 噪声精灵会撞退</p>
             </aside>
           </div>
           <p id="feedback" class="room-event" role="status"></p>
           <details class="evidence-drawer">
-            <summary>查看本关歌词与证据</summary>
+            <summary>本关证据</summary>
             <div id="source" class="source"></div>
           </details>
           <div class="room-log-wrap">
-            <div class="section-head"><span>探索记录</span><span>最近发生</span></div>
+            <div class="section-head"><span>记录</span></div>
             <ol id="roomLog" class="room-log"></ol>
           </div>
         </div>
       </div>
       <div id="rewardToast" class="reward-toast" hidden></div>
       <div class="inventory-panel">
-        <div class="section-head"><span>探索行囊</span><span>知识卡会随本轮路线收集</span></div>
-        <div id="gameInventory" class="inventory-grid"><p>还没有收集知识卡。</p></div>
+        <div class="section-head"><span>行囊</span><span class="quiet">知识卡</span></div>
+        <div id="gameInventory" class="inventory-grid"><p class="quiet">尚未收集。</p></div>
       </div>
-      <p id="studyPlayback" role="status"></p>
+      <p id="studyPlayback" role="status" class="quiet"></p>
     </div>
   </section>
 
-  <footer>
-    VIBE RECORDS · Learn the language. Feel the music.
-  </footer>
+  <footer>VIBE RECORDS</footer>
 </main>
 
 <div id="gameModal" class="game-modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">

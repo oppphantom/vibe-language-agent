@@ -89,6 +89,9 @@
     requestAnimationFrame(()=>{
       const shelf=$(shelfId),control=$(controlId),maximum=Math.max(0,shelf.scrollWidth-shelf.clientWidth);
       control.max=String(maximum);control.value=String(Math.min(maximum,shelf.scrollLeft));control.hidden=maximum<2;
+      // Edge：歌架卡片多时通知天空降帧，避免每帧重算 backdrop-filter
+      const dense=shelfPairs.some(([id])=>$(id).querySelectorAll('.song-card').length>=12);
+      document.documentElement.classList.toggle('has-dense-glass',dense);
     });
   }
   for(const [shelfId,controlId] of shelfPairs){
@@ -120,7 +123,7 @@
     $('modelSettingsStatus').className=state.modelConfigured?'is-success':'';
     $('modelSettingsStatus').textContent=state.modelConfigured?`模型已连接：${config.model} · ${source}。API Key 已隐藏。`:'尚未连接模型。填写下方信息后测试连接。';
     if(state.modelConfigured&&state.lines.length)$('planStatus').textContent='模型已连接，可以生成当前歌曲的学习地图。';
-    else if(!state.modelConfigured)$('planStatus').textContent='模型未配置：请打开“模型设置”连接 API，歌词播放仍可使用。';
+    else if(!state.modelConfigured)$('planStatus').textContent='尚未连接模型；仍可听歌看歌词。';
   }
   async function loadModelConfig(){
     try{renderModelConfig(await request('/api/model-config'))}
@@ -170,13 +173,15 @@
   }
   function updateProvider(){
     clearPendingCheck();state.provider=$('musicProvider').value;state.connected=false;state.song=null;state.lines=[];state.pendingSong=null;
-    $('musicSongs').replaceChildren();$('musicStudy').hidden=true;$('systemControls').hidden=true;$('musicPlayback').textContent='选择一句歌词开始播放。';
+    $('musicSongs').replaceChildren();$('musicStudy').hidden=true;$('systemControls').hidden=true;$('musicPlayback').textContent='点选一句开始。';
     const apple=state.provider==='apple';$('loadLibrary').hidden=!apple;$('libraryArtistLabel').hidden=!apple;
     $('neteaseSearch').hidden=state.provider!=='netease';$('neteaseResults').replaceChildren();$('neteaseSearchStatus').textContent='';
     $('qqLibraryPanel').hidden=state.provider!=='qqmusic';$('qqLibraryResults').replaceChildren();$('qqLibraryStatus').textContent='';
     $('discoverForm').querySelector('button').disabled=!apple;
-    $('discoverStatus').textContent=apple?'':'跨歌曲资料库索引目前只支持 Mac「音乐」；可以先在客户端换歌，再连接当前歌曲。';
-    $('musicStatus').textContent=`已选择${providerName[state.provider]}。点击连接读取当前歌曲。`;
+    $('discoverStatus').textContent=apple?'':'Discover 目前仅支持 Mac「音乐」。';
+    $('musicStatus').textContent=`已选 ${providerName[state.provider]} · 连接当前曲目`;
+    document.documentElement.classList.remove('has-dense-glass');
+    shelfPairs.forEach(pair=>updateShelfScroll(...pair));
   }
   $('musicProvider').onchange=updateProvider;
   function playAddress(song){
@@ -240,7 +245,13 @@
     try{const data=await request(provider==='apple'?'/api/mac/status':'/api/player/status?'+new URLSearchParams({source:provider}));
       if(provider!==state.provider||(!manual&&pending&&state.pendingSong!==pending))return;
       state.connected=data.running;
-      if(!data.running){$('musicStatus').textContent=provider==='apple'?'请先启动 Mac「音乐」，然后再点击连接。':`系统当前播放来源是${providerName[data.activeSource]||'其他应用'}。请在${providerName[provider]}播放目标歌曲，再点击连接。`;if(pending)retryPendingSong(pending,provider,'当前还没有检测到目标客户端。');return}
+      if(!data.running){
+        $('musicStatus').textContent=provider==='apple'?'请先启动 Mac「音乐」，然后再点击连接。':
+          provider==='netease'&&state.platform==='win32'
+            ?'未检测到网易云正在播放。请先在客户端点播放；若是微软商店版，逐句控制通常不可用，请改用官网桌面版并用 --remote-debugging-port=9222 启动。'
+            :`系统当前播放来源是${providerName[data.activeSource]||'其他应用'}。请在${providerName[provider]}播放目标歌曲，再点击连接。`;
+        if(pending)retryPendingSong(pending,provider,'当前还没有检测到目标客户端。');return}
+
       $('musicStatus').textContent=data.title?`已连接${providerName[provider]}；当前曲目：${data.title} · ${data.artist}。`:`已连接${providerName[provider]}。`;
       if(provider==='qqmusic'&&!data.positionReliable)$('musicStatus').textContent+=' QQ 音乐向系统上报的进度可能停留在旧位置；网页的句末时间是目标值，请以客户端播放条为准。';
       if(provider!=='apple'){
@@ -382,7 +393,7 @@
       renderRecordNotes();
       refreshAnalysis();
       $('musicLearning').hidden=false;
-      if(!state.modelConfigured)$('planStatus').textContent='模型未配置：仍然可以播放和查看歌词，但不能生成真实歌曲课程。';
+      if(!state.modelConfigured)$('planStatus').textContent='尚未连接模型；仍可听歌看歌词。';
     }catch(error){if(state.song===song)$('musicSource').textContent='同步歌词检索失败：'+error.message}
   }
   let analysisRequest=0;
@@ -484,7 +495,7 @@
       const health=await request('/api/health');
       state.platform=health.platform||'unknown';state.modelConfigured=health.modelConfigured===true;
       $('planSong').disabled=!state.modelConfigured;
-      if(!state.modelConfigured)$('planStatus').textContent='模型未配置：仍然可以播放和查看歌词，但不能生成真实歌曲课程。';
+      if(!state.modelConfigured)$('planStatus').textContent='尚未连接模型；仍可听歌看歌词。';
     }catch{}
     await loadModelConfig();
     if(state.platform==='win32'){

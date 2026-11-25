@@ -198,13 +198,27 @@ void main(){
   const uTime=gl.getUniformLocation(program,'uTime');
 
   const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
+  // Edge 对「每帧 WebGL + 多层 backdrop-filter」合成特别重；Cursor 内置浏览器通常不受影响。
+  // 降内部分辨率并用 CSS 拉伸，焦散观感几乎不变；滚动时冻结最后一帧避免连带重模糊。
+  const isEdge=/\bEdg\/\d/i.test(navigator.userAgent)||/\bEdge\/\d/i.test(navigator.userAgent);
+  if(isEdge)document.documentElement.classList.add('is-edge');
+  const maxDpr=isEdge?1:1.5;
+  const maxPixels=isEdge?900000:2200000;
   let width=0,height=0;
   let started=0;
   let lastDraw=-1;
+  let raf=0;
+  let running=false;
+  let scrolling=false;
+  let scrollTimer=0;
+  // 普通 12fps；歌架密集时约 0.5fps（焦散极慢，观感接近连续，但几乎不再触发玻璃重模糊）
+  function targetFps(){
+    if(!isEdge)return 30;
+    return document.documentElement.classList.contains('has-dense-glass')?0.5:12;
+  }
 
   function resize(){
-    const dpr=Math.min(window.devicePixelRatio||1,1.5);
-    const maxPixels=2200000;
+    const dpr=Math.min(window.devicePixelRatio||1,maxDpr);
     let w=Math.max(1,Math.round(canvas.clientWidth*dpr));
     let h=Math.max(1,Math.round(canvas.clientHeight*dpr));
     const scale=Math.min(1,Math.sqrt(maxPixels/(w*h)));
@@ -225,29 +239,58 @@ void main(){
     lastDraw=seconds;
   }
 
+  function stopLoop(){
+    running=false;
+    if(raf){cancelAnimationFrame(raf);raf=0}
+  }
+
+  function startLoop(){
+    if(running||document.hidden||reduceMotion.matches||scrolling)return;
+    running=true;
+    raf=requestAnimationFrame(frame);
+  }
+
   function frame(now){
-    if(document.hidden||reduceMotion.matches)return;
+    raf=0;
+    // 顶栏切页时暂停车空重绘，把 GPU 让给按钮过渡
+    if(document.hidden||reduceMotion.matches||scrolling||document.documentElement.classList.contains('is-tab-switching')){
+      running=false;return;
+    }
     if(!started)started=now;
     const seconds=(now-started)/1000;
-    // 30fps 足够表现这种缓慢流动，省电
-    if(lastDraw<0||seconds-lastDraw>=1/30)draw(seconds);
-    requestAnimationFrame(frame);
+    if(lastDraw<0||seconds-lastDraw>=1/targetFps())draw(seconds);
+    raf=requestAnimationFrame(frame);
   }
+  // 歌架密度 / 切页标记变化时重排循环
+  new MutationObserver(()=>{
+    if(document.documentElement.classList.contains('is-tab-switching')){stopLoop();return}
+    if(!reduceMotion.matches){if(isEdge)lastDraw=-1;startLoop()}
+  }).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
 
   host.classList.add('is-live');
   resize();
-  window.addEventListener('resize',resize);
+  window.addEventListener('resize',resize,{passive:true});
+  // 滚动期间冻结天空：玻璃模糊不再跟着每帧 WebGL 重算（Edge 卡顿主因）
+  document.addEventListener('scroll',()=>{
+    scrolling=true;
+    stopLoop();
+    if(scrollTimer)clearTimeout(scrollTimer);
+    scrollTimer=setTimeout(()=>{
+      scrolling=false;
+      if(!reduceMotion.matches)startLoop();
+    },160);
+  },{passive:true,capture:true});
   if(reduceMotion.matches){
     draw(0);
     reduceMotion.addEventListener('change',()=>{
-      if(reduceMotion.matches)draw(0);
-      else{started=0;lastDraw=-1;requestAnimationFrame(frame);}
+      if(reduceMotion.matches){stopLoop();draw(0)}
+      else{started=0;lastDraw=-1;startLoop()}
     });
   }else{
-    requestAnimationFrame(frame);
+    startLoop();
   }
-  // 从后台切回时重新累积时间，避免出现一次大跳变
   document.addEventListener('visibilitychange',()=>{
-    if(!document.hidden&&!reduceMotion.matches){started=0;lastDraw=-1;requestAnimationFrame(frame);}
+    if(document.hidden)stopLoop();
+    else if(!reduceMotion.matches){started=0;lastDraw=-1;startLoop()}
   });
 })();

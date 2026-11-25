@@ -3,11 +3,20 @@ const $=id=>document.getElementById(id);
 const state={session:null,node:null,attempt:1,languages:[],learningLanguage:'ko',roomLog:[],moving:false,moveQueue:[],modalId:null,finalPlaybackToken:0,finalPlaybackNodeId:null,finalPlayback:null,noteRetry:null,restarting:false};
 function updateProgress(){const p=state.session?.progress;if(!p)return;const pct=p.total>0?Math.round(p.completed/p.total*100):0;const bar=$('progressBar'),fill=$('progressFill');if(bar)bar.setAttribute('aria-valuenow',String(pct));if(fill)fill.style.width=pct+'%';}
 async function api(path,method='GET',body){const response=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const data=await response.json();if(!response.ok)throw Error(data.error?.message||'请求失败');window.vibeLearning?.capture(data.session||data);return data;}
+let modeApplyFrame=0;
 function mode(name){
   if(state.restarting)return;
-  if(name!=='study'){state.finalPlaybackToken++;stopNotePlaybackRetry();if(!$('gameModal').hidden)closeGameModal()}
-  $('music').hidden=name!=='music';$('study').hidden=name!=='study';$('settings').hidden=name!=='settings';
+  // 先切换导航选中态，让按下/高亮动效当帧完成；整页分区切换推到下一帧，避免毛玻璃重绘卡住按钮过渡
   for(const item of ['music','study','settings'])$(item+'Tab').classList.toggle('active',name===item);
+  document.documentElement.classList.add('is-tab-switching');
+  if(modeApplyFrame)cancelAnimationFrame(modeApplyFrame);
+  const apply=()=>{
+    modeApplyFrame=0;
+    if(name!=='study'){state.finalPlaybackToken++;stopNotePlaybackRetry();if(!$('gameModal').hidden)closeGameModal()}
+    $('music').hidden=name!=='music';$('study').hidden=name!=='study';$('settings').hidden=name!=='settings';
+    requestAnimationFrame(()=>document.documentElement.classList.remove('is-tab-switching'));
+  };
+  modeApplyFrame=requestAnimationFrame(()=>{modeApplyFrame=requestAnimationFrame(apply)});
 }
 $('musicTab').onclick=()=>mode('music');
 $('studyTab').onclick=()=>{if(state.session)mode('study');else mode('music')};
@@ -29,6 +38,7 @@ function updateLanguageControls(){
     mode('music');
   }
   $('languageStatus').textContent=`当前学习${label}；课程、歌词检索与模型解释使用这个语言`;
+  delete $('languageStatus').dataset.error;
   const currentExample=$('discoverQuery').value.trim();
   if(!currentExample||Object.values(examples).includes(currentExample))$('discoverQuery').value=examples[language];
   $('discoverQuery').placeholder=`例如 ${examples[language]}`;
@@ -634,6 +644,7 @@ document.addEventListener('pointerover',event=>{
   if(card)initCodeEffect(card,1200);
   const control=event.target.closest('button,.client-play-link');
   // 弹窗内部有自己的层级和固定关闭按钮，不应用卡片悬浮代码装饰。
-  if(control&&!control.closest('.game-modal')&&!(control.matches('button')&&control.disabled))initCodeEffect(control,600);
+  // 顶栏导航不套代码悬浮层，避免点击切页时额外合成
+  if(control&&!control.closest('nav')&&!control.closest('.game-modal')&&!(control.matches('button')&&control.disabled))initCodeEffect(control,600);
 },{passive:true});
 mode('music');init();
