@@ -43,6 +43,15 @@ async function main(){
     assert.deepEqual(catalog.languages.map(item=>item.code),['ko','ja','zh']);
     assert.equal(catalog.songs.length,6);
     assert.ok(catalog.songs.every(song=>song.languageLabel));
+    for(const song of catalog.songs){
+      const created=await call('/api/sessions','POST',{songId:song.id});
+      assert.equal(created.status,201);
+      assert.equal(created.data.mode,'offline_demo');
+      assert.equal(created.data.language,song.language);
+      const first=await call(`/api/sessions/${created.data.id}/node`);
+      assert.equal(first.status,200);
+      assert.equal(first.data.teaching.phase,'brief');
+    }
 
     const vectors={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
     function playerPosition(node){for(let y=0;y<node.room.cells.length;y++)for(let x=0;x<node.room.cells[y].length;x++)if(node.room.cells[y][x]==='player')return {x,y};throw Error('player missing')}

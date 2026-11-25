@@ -1,28 +1,75 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const state={session:null,node:null,attempt:1,languages:[],learningLanguage:'ko',roomLog:[],moving:false,moveQueue:[],modalId:null,finalPlaybackToken:0,finalPlaybackNodeId:null,finalPlayback:null,noteRetry:null,restarting:false};
+const state={session:null,node:null,attempt:1,languages:[],learningLanguage:'ko',samples:[],sampleProvenance:'',sampleStarting:false,currentStep:'choose',roomLog:[],moving:false,moveQueue:[],modalId:null,finalPlaybackToken:0,finalPlaybackNodeId:null,finalPlayback:null,noteRetry:null,restarting:false};
 function updateProgress(){const p=state.session?.progress;if(!p)return;const pct=p.total>0?Math.round(p.completed/p.total*100):0;const bar=$('progressBar'),fill=$('progressFill');if(bar)bar.setAttribute('aria-valuenow',String(pct));if(fill)fill.style.width=pct+'%';}
 async function api(path,method='GET',body){const response=await fetch(path,{method,headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const data=await response.json();if(!response.ok)throw Error(data.error?.message||'请求失败');window.vibeLearning?.capture(data.session||data);return data;}
 let modeApplyFrame=0;
-function mode(name){
+function mode(name,afterApply){
   if(state.restarting)return;
-  // 先切换导航选中态，让按下/高亮动效当帧完成；整页分区切换推到下一帧，避免毛玻璃重绘卡住按钮过渡
-  for(const item of ['music','study','settings'])$(item+'Tab').classList.toggle('active',name===item);
+  for(const item of ['music','study']){
+    const tab=$(item+'Tab'),active=name===item;
+    tab.classList.toggle('active',active);
+    tab.setAttribute('aria-selected',String(active));
+    tab.tabIndex=active||(name==='settings'&&item==='music')?0:-1;
+  }
+  $('settingsTab').classList.toggle('active',name==='settings');
+  $('settingsTab').setAttribute('aria-pressed',String(name==='settings'));
   document.documentElement.classList.add('is-tab-switching');
   if(modeApplyFrame)cancelAnimationFrame(modeApplyFrame);
   const apply=()=>{
     modeApplyFrame=0;
     if(name!=='study'){state.finalPlaybackToken++;stopNotePlaybackRetry();if(!$('gameModal').hidden)closeGameModal()}
     $('music').hidden=name!=='music';$('study').hidden=name!=='study';$('settings').hidden=name!=='settings';
+    document.body.classList.toggle('is-settings',name==='settings');
+    $('learningLanguage').disabled=name==='study';
+    $('learningLanguage').title=name==='study'?'返回开始学习后可切换语言':'';
+    if(name==='study'){$('studyCourseTitle').tabIndex=-1;$('studyCourseTitle').focus()}
+    if(name==='settings'){$('settingsHeading').tabIndex=-1;$('settingsHeading').focus()}
     requestAnimationFrame(()=>document.documentElement.classList.remove('is-tab-switching'));
+    afterApply?.();
   };
   modeApplyFrame=requestAnimationFrame(()=>{modeApplyFrame=requestAnimationFrame(apply)});
 }
+const noSampleMessage='当前学习语言暂无样例。请切换学习语言，或连接本地音乐。';
 $('musicTab').onclick=()=>mode('music');
-$('studyTab').onclick=()=>{if(state.session)mode('study');else mode('music')};
+$('studyTab').onclick=()=>{
+  if(state.session)mode('study');
+  else{
+    mode('music',()=>{
+      $('sampleStatus').textContent='完成样例或课程后，这里会打开当前学习地图。';
+      document.getElementById('sampleCourse')?.scrollIntoView({behavior:'smooth',block:'start'});
+      $('startSample').focus();
+    });
+  }
+};
 $('settingsTab').onclick=()=>mode('settings');
-$('settingsBack').onclick=()=>mode('music');
+$('settingsBack').onclick=()=>mode('music',()=>$('startSample')?.focus());
 $('studyBack').onclick=()=>mode('music');
+for(const [tab,other] of [['musicTab','studyTab'],['studyTab','musicTab']]){
+  $(tab).addEventListener('keydown',event=>{
+    if(event.key!=='ArrowLeft'&&event.key!=='ArrowRight')return;
+    event.preventDefault();$(other).focus();
+  });
+}
+$('startSample').onclick=()=>{
+  const first=state.samples.find(song=>song.language===selectedLanguage());
+  if(first)startSample(first.id);
+  else{
+    document.getElementById('sampleCourse')?.scrollIntoView({behavior:'smooth',block:'start'});
+    $('sampleStatus').textContent=noSampleMessage;
+  }
+};
+$('goLibrary').onclick=()=>{
+  document.getElementById('musicLibrary')?.scrollIntoView({behavior:'smooth',block:'start'});
+  $('musicProvider')?.focus();
+};
+$('openModelFromStudy').onclick=()=>mode('settings');
+$('goSampleFromStudy').onclick=()=>{
+  mode('music',()=>{
+    document.getElementById('sampleCourse')?.scrollIntoView({behavior:'smooth',block:'start'});
+    $('startSample')?.focus();
+  });
+};
 $('teachingPlay').onclick=playTeachingEvidence;
 function text(tag,value,className){const el=document.createElement(tag);el.textContent=value;if(className)el.className=className;return el;}
 function selectedLanguage(){return $('learningLanguage').value||'ko'}
@@ -30,18 +77,78 @@ function languageLabel(code){
   return state.languages.find(item=>item.code===code)?.label||{ko:'韩语',ja:'日语',zh:'中文'}[code]||'韩语';
 }
 function languageClass(code){return `language-text language-${['ko','ja','zh'].includes(code)?code:'ko'}`}
+function sampleTime(ms){const s=Math.floor((ms||0)/1000);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+const stepOrder=['choose','listen','generate'];
+function setStep(name,detail){
+  state.currentStep=stepOrder.includes(name)?name:'choose';
+  const index=stepOrder.indexOf(state.currentStep),labels={choose:'选歌',listen:'听原声',generate:'开始课程'};
+  for(const item of document.querySelectorAll('#stepRail .step')){
+    const itemIndex=stepOrder.indexOf(item.dataset.step),active=item.dataset.step===state.currentStep;
+    item.classList.toggle('is-active',active);
+    item.classList.toggle('is-done',itemIndex<index);
+    if(active)item.setAttribute('aria-current','step');else item.removeAttribute('aria-current');
+  }
+  const status=$('stepStatus');
+  if(status)status.textContent=`当前步骤：${labels[state.currentStep]}${detail?'。'+detail:''}`;
+}
+window.vibeSteps={set:setStep};
+function setStudyTabEnabled(enabled){
+  const tab=$('studyTab');
+  if(!tab)return;
+  tab.setAttribute('aria-disabled',String(!enabled));
+}
+function renderSampleSongs(){
+  const host=$('sampleSongs');
+  if(!host)return;
+  const language=selectedLanguage();
+  const matches=state.samples.filter(song=>song.language===language);
+  host.replaceChildren();
+  if(!matches.length){
+    host.textContent=`当前${languageLabel(language)}暂无原创教学样例。请切换学习语言，或连接本地音乐。`;
+    return;
+  }
+  for(const song of matches){
+    const card=document.createElement('article');
+    card.className='song-card sample-card';
+    card.append(
+      text('small',`${song.languageLabel||languageLabel(song.language)} · ${sampleTime(song.durationMs)}`),
+      text('h2',song.title)
+    );
+    if(song.artist&&!song.artist.includes('原创教学样例'))card.append(text('p',song.artist));
+    const button=text('button','进入样例课程','secondary');button.type='button';
+    button.onclick=()=>startSample(song.id);
+    card.append(button);
+    host.append(card);
+  }
+}
+async function startSample(songId){
+  if(state.sampleStarting)return;
+  const song=state.samples.find(item=>item.id===songId);
+  if(!song){$('sampleStatus').textContent='没有找到这首样例。';return}
+  state.sampleStarting=true;
+  $('sampleStatus').textContent=`正在创建「${song.title}」的样例课程…`;
+  try{
+    await startSession({songId});
+    $('sampleStatus').textContent='';
+  }catch(error){
+    $('sampleStatus').textContent='样例课程启动失败：'+error.message;
+  }finally{
+    state.sampleStarting=false;
+  }
+}
 function updateLanguageControls(){
   const language=selectedLanguage(),label=languageLabel(language),examples={ko:'다시',ja:'また',zh:'再见'};
   state.learningLanguage=language;localStorage.setItem('vibe-learning-language',language);
   if(state.session&&state.session.language!==language){
     state.session=null;state.node=null;$('lesson').hidden=true;localStorage.removeItem('vibe-starter-session');
-    mode('music');
+    setStudyTabEnabled(false);setStep('choose');mode('music');
   }
-  $('languageStatus').textContent=`当前学习${label}；课程、歌词检索与模型解释使用这个语言`;
+  $('languageStatus').textContent=`当前学习${label}`;
   delete $('languageStatus').dataset.error;
   const currentExample=$('discoverQuery').value.trim();
   if(!currentExample||Object.values(examples).includes(currentExample))$('discoverQuery').value=examples[language];
   $('discoverQuery').placeholder=`例如 ${examples[language]}`;
+  renderSampleSongs();
   document.dispatchEvent(new CustomEvent('learning-language-change',{detail:{language}}));
 }
 function currentNodeAttempt(){
@@ -99,18 +206,20 @@ async function init(){
     $('learningLanguage').replaceChildren();
     for(const language of state.languages)$('learningLanguage').append(new Option(language.label,language.code));
     $('learningLanguage').value=state.languages.some(language=>language.code===storedLanguage)?storedLanguage:'ko';
+    state.samples=data.songs||[];
+    state.sampleProvenance=String(data.provenance||'').replace('；',' · ')||'原创教学样例 · 非实时 Agent 生成';
     $('learningLanguage').onchange=updateLanguageControls;
     updateLanguageControls();
+    setStep('choose','可以先体验样例，或连接本地音乐。');
     const id=localStorage.getItem('vibe-starter-session');
     if(id) {
       try{
         state.session=await api('/api/sessions/'+encodeURIComponent(id));
-        if(state.session.mode==='offline_demo')throw Error('展示模式不恢复离线课程');
         state.node=await api('/api/sessions/'+encodeURIComponent(id)+'/node');
         $('learningLanguage').value=state.session.language||'ko';
         updateLanguageControls();
         state.attempt=currentNodeAttempt();
-        $('studyTab').disabled=false;
+        setStudyTabEnabled(true);
         renderNode();
         mode('study');
       }catch{
@@ -122,8 +231,12 @@ async function init(){
 async function startSession(body){
   state.session=await api('/api/sessions','POST',body);
   state.node=await api('/api/sessions/'+state.session.id+'/node');
+  if(state.session.language&&$('learningLanguage').value!==state.session.language){
+    $('learningLanguage').value=state.session.language;
+    updateLanguageControls();
+  }
   state.attempt=currentNodeAttempt();
-  $('studyTab').disabled=false;
+  setStudyTabEnabled(true);
   localStorage.setItem('vibe-starter-session',state.session.id);
   renderNode();
   mode('study');
@@ -488,6 +601,13 @@ function renderNode(){
   closeGameModal();
   $('lesson').hidden=false;
   $('studyCourseTitle').textContent=`${state.session.courseTitle||'歌曲语境学习'} · ${state.session.languageLabel||languageLabel(state.session.language)}`;
+  const provenance=$('studyProvenance');
+  if(provenance){
+    provenance.textContent=state.session.mode==='offline_demo'
+      ?'原创教学样例 · 非实时 Agent 生成 · 无音源'
+      :'AI 生成 · 未经人工核对 · 依据本机同步歌词';
+    provenance.title=node.provenance||'';
+  }
   renderTeaching();
   $('studyPlayback').textContent='';
   $('rewardToast').hidden=true;
