@@ -70,7 +70,6 @@
   --font-mono:"SF Mono",Consolas,"Courier New",monospace;
   --font-ko:"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
   --font-ja:"Hiragino Sans","Yu Gothic","Noto Sans JP","Meiryo",sans-serif;
-  --font-zh:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif;
   --font-language:"Apple SD Gothic Neo","Hiragino Sans","Yu Gothic","PingFang SC","Microsoft YaHei",sans-serif;
   color-scheme:light;
 }
@@ -236,7 +235,6 @@ a:hover{color:var(--blue-dark)}
 }
 .korean.language-ko,.language-text.language-ko{font-family:var(--font-ko)}
 .korean.language-ja,.language-text.language-ja{font-family:var(--font-ja)}
-.korean.language-zh,.language-text.language-zh{font-family:var(--font-zh)}
 
 .language-switch{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;
@@ -1479,8 +1477,6 @@ nav button[aria-disabled="true"]:hover{transform:none;background-color:var(--gla
 .language-switch--compact{margin:14px 0 0;padding:8px 12px}
 .language-switch--compact span{font-size:12px;color:var(--ink-soft)}
 
-.sample-grid{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-.sample-card .provenance{display:block;margin:0 0 4px;color:var(--ink-muted);font-size:11px;line-height:1.4}
 
 .learning-cta{position:sticky;bottom:14px;z-index:25;background-color:rgba(255,255,255,.86);box-shadow:0 18px 40px -24px rgba(28,28,46,.5)}
 .learning-cta__actions{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 0}
@@ -1524,7 +1520,6 @@ nav button[aria-disabled="true"]:hover{transform:none;background-color:var(--gla
   .step{flex:1 1 0;min-width:0;padding:8px 6px;gap:6px}
   .step__num{font-size:9px}
   .step__text small{display:none}
-  .sample-grid{grid-template-columns:1fr}
   .learning-cta{position:static}
 }
 @media (prefers-reduced-motion:reduce){
@@ -1596,12 +1591,6 @@ html{scroll-padding-top:calc(var(--app-bar-h) + 12px)}
 .step.is-active::before{content:"";position:absolute;left:12px;right:12px;bottom:-10px;height:2px;background:var(--blue)}
 .step.is-done .step__text strong{color:var(--ink)}
 
-.sample-grid{grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
-.sample-card{padding:16px;border:1px solid var(--glass-border);border-radius:16px;background:rgba(255,255,255,.6);box-shadow:none}
-.sample-card h2{margin:6px 0 4px;font-size:18px}
-.sample-card p{font-size:12.5px}
-.sample-card button{margin:12px 0 0;width:auto}
-.sample-card::before,.sample-card::after{display:none}
 
 :is(.song-card,.capability-card,.agent-box,.context-card)::before{display:none}
 .song-card{border:1px solid rgba(255,255,255,.7);border-radius:16px;box-shadow:0 10px 24px -22px rgba(28,28,46,.4)}
@@ -1659,14 +1648,12 @@ html{scroll-padding-top:calc(var(--app-bar-h) + 12px)}
   .hero{padding:20px 0 0}
   .hero-actions{gap:8px;margin:16px 0 6px}
   .section-kicker{margin:16px 0 6px}
-  #sampleCourse .section-head{margin-top:24px}
   .capability-card{padding:12px 14px}
   .learning-cta{position:static;padding:14px 16px}
 }
 
 @media (max-width:600px){
   .hero-actions{display:grid;grid-template-columns:1fr}
-  .sample-grid{grid-template-columns:1fr}
   .nav-hint{display:none}
 }
 

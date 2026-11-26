@@ -2,8 +2,7 @@
 
 const languages=Object.freeze([
   Object.freeze({code:'ko',label:'韩语',nativeLabel:'한국어'}),
-  Object.freeze({code:'ja',label:'日语',nativeLabel:'日本語'}),
-  Object.freeze({code:'zh',label:'中文',nativeLabel:'中文'})
+  Object.freeze({code:'ja',label:'日语',nativeLabel:'日本語'})
 ]);
 const languageMap=new Map(languages.map(language=>[language.code,language]));
 
@@ -11,7 +10,7 @@ function normalizeLanguage(value,fallback='ko') {
   const candidate=value===undefined||value===null||value===''?fallback:value;
   if(typeof candidate!=='string')throw Object.assign(Error('学习语言无效'),{code:'INVALID_INPUT'});
   const code=candidate.trim().toLowerCase();
-  if(!languageMap.has(code))throw Object.assign(Error('学习语言必须是韩语、日语或中文'),{code:'INVALID_INPUT'});
+  if(!languageMap.has(code))throw Object.assign(Error('学习语言必须是韩语或日语'),{code:'INVALID_INPUT'});
   return code;
 }
 

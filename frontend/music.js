@@ -4,7 +4,7 @@
   const state={song:null,lines:[],connected:false,provider:'apple',platform:'unknown',modelConfigured:false,qqSongs:[],qqSource:'本机 QQ 音乐',neteasePlaylists:[],pendingSong:null,connecting:false};
   let pendingCheckTimer=null,pendingCheckAttempts=0;
   const providerName={apple:'Mac「音乐」',qqmusic:'QQ 音乐',netease:'网易云音乐'};
-  const languageName={ko:'韩语',ja:'日语',zh:'中文'};
+  const languageName={ko:'韩语',ja:'日语'};
   const normal=s=>String(s||'').normalize('NFKC').toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
   const offsetKey=song=>'vibe-music-offset:'+(song.provider||'apple')+':'+song.artist+':'+song.title;
   const recordKey=song=>'vibe-record-notes:'+(song.provider||'apple')+':'+song.artist+':'+song.title+':'+song.durationMs;
@@ -83,7 +83,7 @@
   };
   const make=(tag,value,className)=>{const el=document.createElement(tag);el.textContent=value;if(className)el.className=className;return el};
   const learningLanguage=()=>$('learningLanguage')?.value||'ko';
-  const languageClass=code=>`language-text language-${['ko','ja','zh'].includes(code)?code:'ko'}`;
+  const languageClass=code=>`language-text language-${['ko','ja'].includes(code)?code:'ko'}`;
   const shelfPairs=[['musicSongs','musicSongsScroll'],['qqLibraryResults','qqLibraryScroll'],['neteaseResults','neteaseScroll']];
   function updateShelfScroll(shelfId,controlId){
     requestAnimationFrame(()=>{
@@ -203,7 +203,7 @@
     clearPendingCheck();state.provider=$('musicProvider').value;state.connected=false;state.song=null;state.lines=[];state.pendingSong=null;
     $('musicSongs').replaceChildren();$('musicSongTitle').textContent='';
     clearSongActions();
-    window.vibeSteps?.set('choose','先体验样例，或连接音乐载入自己的歌。');
+    window.vibeSteps?.set('choose','连接音乐载入自己的歌。');
     lockMusicStudy('连接本地音乐并读取当前歌曲后，这里会自动解锁。');
     $('musicPlayback').textContent='选择一句歌词开始播放。';
     const apple=state.provider==='apple';$('loadLibrary').hidden=!apple;$('libraryArtistLabel').hidden=!apple;
