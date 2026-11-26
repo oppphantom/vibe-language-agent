@@ -4,7 +4,7 @@ const normalize=text=>text.normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}
 function analyzeSong(input){
   const song=validateSong(input?.song),profile=validateLearnerProfile(input.profile);
   if(!Array.isArray(input.lines)||input.lines.length>3000)throw Error('歌词材料无效');
-  const targetScript={ko:/\p{Script=Hangul}/u,ja:/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u,zh:/\p{Script=Han}/u}[song.language];
+  const targetScript={ko:/\p{Script=Hangul}/u,ja:/[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u}[song.language];
   const seen=new Set();
   const lines=input.lines.map(validateLine).filter(line=>{
     if(line.songId!==song.id)throw Error('歌词行不属于当前歌曲');

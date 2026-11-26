@@ -38,7 +38,6 @@
       <select id="learningLanguage">
         <option value="ko">韩语</option>
         <option value="ja">日语</option>
-        <option value="zh">中文</option>
       </select>
       <span id="languageStatus" class="sr-only">当前学习韩语</span>
     </div>
@@ -49,7 +48,7 @@
       </div>
       <button id="settingsTab" type="button" class="app-bar__settings" aria-controls="settings" aria-pressed="false">模型设置</button>
     </div>
-    <p id="studyTabHint" class="sr-only">完成样例或课程后，这里打开当前学习地图。</p>
+    <p id="studyTabHint" class="sr-only">生成课程后，这里打开当前学习地图。</p>
   </div>
 </header>
 
@@ -109,10 +108,8 @@
       <p class="lede">把一首歌，变成一节能玩的语言课。</p>
       <p class="hero-support">连接音乐软件，按句听原声；Agent 选表达、写教学、设计关卡。</p>
       <div class="hero-actions">
-        <button id="startSample" type="button">先体验样例课程</button>
-        <button id="goLibrary" type="button" class="secondary">用自己的歌</button>
+        <button id="goLibrary" type="button">用自己的歌</button>
       </div>
-      <p class="hero-note">样例为原创教学文本，不含音源；样例课程无需模型。</p>
     </section>
 
     <p class="section-kicker">Agent 能做什么</p>
@@ -131,21 +128,15 @@
       </article>
     </div>
 
-    <section id="sampleCourse" aria-labelledby="sampleHeading">
-      <div class="section-head"><span id="sampleHeading">01 / 快速体验</span><span class="tag">原创教学样例 · 非实时 Agent 生成</span></div>
-      <div id="sampleSongs" class="song-grid sample-grid"></div>
-      <p id="sampleStatus" role="status">选择一首样例，直接进入完整课程。</p>
-    </section>
-
     <section id="musicLibrary">
-      <div class="section-head"><span>02 / 用你自己的歌</span><span class="tag">本机播放</span></div>
+      <div class="section-head"><span>01 / 用你自己的歌</span><span class="tag">本机播放</span></div>
       <p>读取当前歌曲或歌单；匹配同步歌词后，可按句听原声，并开始自己的课程。</p>
       <ol id="stepRail" class="step-rail" aria-label="学习流程">
-        <li class="step is-active" data-step="choose" aria-current="step"><span class="step__text"><strong>选歌</strong><small>样例或自己的歌</small></span></li>
+        <li class="step is-active" data-step="choose" aria-current="step"><span class="step__text"><strong>选歌</strong><small>自己的歌</small></span></li>
         <li class="step" data-step="listen"><span class="step__text"><strong>听原声</strong><small>同步歌词</small></span></li>
         <li class="step" data-step="generate"><span class="step__text"><strong>开始课程</strong><small>模型就绪后</small></span></li>
       </ol>
-      <p id="stepStatus" class="sr-only" role="status" aria-live="polite">当前步骤：选歌。可以先体验样例，或连接本地音乐。</p>
+      <p id="stepStatus" class="sr-only" role="status" aria-live="polite">当前步骤：选歌。连接本地音乐，选择要学习的歌曲。</p>
       <details class="platform-note">
         <summary>平台与隐私说明</summary>
         <p>Windows 可直接导入 QQ 公开歌单与网易云本机歌单，并从网页点播、跳转或逐句播放；macOS 继续使用系统媒体桥和客户端链接。</p>
@@ -216,7 +207,7 @@
       <div id="learningRecordList" class="learning-record-list"></div>
     </details>
     <section id="musicStudy" class="is-locked" aria-disabled="true" aria-describedby="musicStudyLockText">
-      <div class="section-head"><span>03 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div>
+      <div class="section-head"><span>02 / 歌词与逐句播放</span><span id="musicSongTitle"></span></div>
       <div id="musicStudyLock" class="study-lock lock-line" role="status">
         <span class="tag">锁定</span>
         <p id="musicStudyLockText">连接本地音乐并读取当前歌曲后，这里会自动解锁。</p>
@@ -253,7 +244,6 @@
           <div class="learning-cta__actions">
             <button id="planSong" type="button" disabled>生成学习地图</button>
             <button id="openModelFromStudy" type="button" hidden>配置模型</button>
-            <button id="goSampleFromStudy" type="button" class="secondary">先体验样例课程</button>
           </div>
           <ol id="planPhases" class="plan-phases" hidden aria-label="生成阶段">
             <li data-phase="analyzing_lyrics">分析歌词</li>

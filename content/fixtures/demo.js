@@ -5,8 +5,6 @@ const songs=[
   {id:'demo-return',title:'再见的路口',artist:'VIBE 原创教学样例',language:'ko',version:'demo-v1',durationMs:30000,source:{kind:'original_demo',label:'原创教学文本'},audio:{available:false,reason:'未附可授权音源'}},
   {id:'demo-jp-morning',title:'朝の再会',artist:'VIBE 原创教学样例',language:'ja',version:'demo-v1',durationMs:30000,source:{kind:'original_demo',label:'原创日语教学文本'},audio:{available:false,reason:'未附可授权音源'}},
   {id:'demo-jp-rain',title:'雨のあと',artist:'VIBE 原创教学样例',language:'ja',version:'demo-v1',durationMs:30000,source:{kind:'original_demo',label:'原创日语教学文本'},audio:{available:false,reason:'未附可授权音源'}},
-  {id:'demo-zh-platform',title:'站台的再见',artist:'VIBE 原创教学样例',language:'zh',version:'demo-v1',durationMs:30000,source:{kind:'original_demo',label:'原创中文教学文本'},audio:{available:false,reason:'未附可授权音源'}},
-  {id:'demo-zh-next',title:'下次的约定',artist:'VIBE 原创教学样例',language:'zh',version:'demo-v1',durationMs:30000,source:{kind:'original_demo',label:'原创中文教学文本'},audio:{available:false,reason:'未附可授权音源'}}
 ];
 const row=(songId,n,text,startMs,endMs)=>({id:`${songId}-${n}`,songId,text,startMs,endMs,source:{kind:'original_demo',label:'原创教学文本'},reviewStatus:'original'});
 const lines=[
@@ -22,12 +20,6 @@ const lines=[
   row('demo-jp-rain',1,'駅の前で、また手を振った。',1000,4500),
   row('demo-jp-rain',2,'次の春も、またここで待ってる。',5000,8500),
   row('demo-jp-rain',3,'言えなかった気持ちを、今度は届けよう。',9000,12500),
-  row('demo-zh-platform',1,'清晨的站台，我们再次见面。',1000,4500),
-  row('demo-zh-platform',2,'雨停之后，再见时再一起走吧。',5000,8500),
-  row('demo-zh-platform',3,'昨天没说完的话，留到下一次见面。',9000,12500),
-  row('demo-zh-next',1,'上一次告别时，我们说好还会回来。',1000,4500),
-  row('demo-zh-next',2,'今天的再见，不是结束。',5000,8500),
-  row('demo-zh-next',3,'下次再见，我会把没说完的话讲完。',9000,12500)
 ];
 const lesson={
   id:'demo-dasi',type:'context_choice',target:{expression:'다시',skill:'语境理解',evidenceLineIds:['demo-morning-2','demo-return-2'],prerequisites:['知道 다시 的基本义：再次、重新']},
@@ -178,72 +170,5 @@ const japaneseJourney={
     }
   ]
 };
-const chineseJourney={
-  id:'demo-zh-zaijian-journey',
-  title:'再见：告别之后仍留重逢可能',
-  language:'zh',
-  targetExpression:'再见',
-  teaching:{reading:'zài jiàn',meaning:'告别时使用，也可从字面指向“再次见面”',translations:{
-    'demo-zh-platform-2':'雨停之后，再见时再一起走吧。','demo-zh-next-1':'上一次告别时，我们说好还会回来。','demo-zh-next-3':'下次再见，我会把没说完的话讲完。'
-  }},
-  songIds:['demo-zh-platform','demo-zh-next'],
-  provenance:'原创中文教学课程包；固定内容，可在离线环境完整验证',
-  nodes:[
-    {
-      id:'demo-zh-zaijian-listen',type:'listening',stage:'听辨',skill:'听辨定位',title:'从位置找到再见',
-      target:{expression:'再见',skill:'听辨定位',evidenceLineIds:['demo-zh-platform-2','demo-zh-next-3'],prerequisites:[]},
-      prompt:'样例没有授权音源，先做文字定位。两首歌里的「再见」分别靠近什么时间或行动？',
-      options:['再见时再一起走；下次再见再讲完','第一次见面的路上；立刻转身离开','昨天没说出口；从此不再见面'],correctIndex:0,
-      explanation:'「再见时再一起走吧」与「下次再见」都把“再见”和之后共同行动连接起来。',
-      remedial:'只看含「再见」的句子，圈出后面的“一起走”或“讲完”这两个行动。',
-      evidenceLineIds:['demo-zh-platform-2','demo-zh-next-3'],prerequisiteNodeId:null
-    },
-    {
-      id:'demo-zh-zaijian-meaning',type:'meaning',stage:'含义',skill:'语境推断',title:'今天的告别不是终点',
-      target:{expression:'再见',skill:'语境推断',evidenceLineIds:['demo-zh-next-1','demo-zh-next-2'],prerequisites:['知道 再见 可作为告别语']},
-      prompt:'「今天的再见，不是结束」在这组歌词里最接近什么意思？',
-      options:['这是一次告别，但歌词仍保留以后重逢的可能','今天没有发生任何告别','说话者正在第一次见面'],correctIndex:0,
-      explanation:'前一句说“说好还会回来”，后一句说“再见不是结束”；告别与未来重逢同时成立。',
-      remedial:'先重读上一句“说好还会回来”，再判断「不是结束」是在否定这次关系，还是否定未来重逢。',
-      evidenceLineIds:['demo-zh-next-1','demo-zh-next-2'],prerequisiteNodeId:'demo-zh-zaijian-listen'
-    },
-    {
-      id:'demo-zh-zaijian-story',type:'story',stage:'剧情',skill:'情境运用',title:'把告别接成约定',
-      target:{expression:'再见',skill:'情境运用',evidenceLineIds:['demo-zh-next-1','demo-zh-next-3'],prerequisites:['理解再见既可告别也可指向下一次见面']},
-      prompt:'朋友说「明天再见」。哪一句回应既接受当下告别，也保留明天重逢？',
-      options:['好，明天再见。','今天第一次见。','以后永远不再见。'],correctIndex:0,
-      explanation:'「好」接受约定，「明天再见」同时包含告别与明天重逢。',
-      remedial:'回应需要保留原句中的“明天”和“再次见面”，不能改成第一次见面或永远不再见。',
-      evidenceLineIds:['demo-zh-next-1','demo-zh-next-3'],prerequisiteNodeId:'demo-zh-zaijian-meaning'
-    },
-    {
-      id:'demo-zh-zaijian-culture',type:'culture',stage:'文化',skill:'文化解读',title:'告别语不等于关系结论',
-      target:{expression:'再见',skill:'文化解读',evidenceLineIds:['demo-zh-next-2','demo-zh-next-3'],prerequisites:['能区分语言功能与人物关系事实']},
-      prompt:'「今天的再见，不是结束」能支持哪项解读？',
-      options:['这里的再见既是告别，也表达以后重逢的期待','所有说再见的人都会马上复合','这句话证明两个人从未认识'],correctIndex:0,
-      explanation:'句子明确把告别与“不是结束”并置，但没有说明人物最终是否复合或关系将如何发展。',
-      remedial:'只保留句子明确表达的功能：告别之后仍有重逢期待，不补充人物最终结局。',
-      evidenceLineIds:['demo-zh-next-2','demo-zh-next-3'],prerequisiteNodeId:'demo-zh-zaijian-story'
-    },
-    {
-      id:'demo-zh-zaijian-rest',type:'rest',stage:'休息',skill:'证据复盘',title:'停一下，找重逢线索',
-      target:{expression:'再见',skill:'证据复盘',evidenceLineIds:['demo-zh-next-1','demo-zh-next-3'],prerequisites:['完成听辨、含义、剧情与文化节点']},
-      prompt:'哪一组证据最能支持“先告别，之后还会再见”？',
-      options:['「说好还会回来」与「下次再见，我会把没说完的话讲完」','「清晨的站台」与「雨停之后」','「昨天没说完的话」与「下一次见面」'],correctIndex:0,
-      explanation:'第一组同时出现过去的约定与未来的再见，还具体说明下次要完成的事。',
-      remedial:'寻找同时出现“过去约定”和“未来再见”的一组，而不是只有时间或地点。',
-      evidenceLineIds:['demo-zh-next-1','demo-zh-next-3'],prerequisiteNodeId:'demo-zh-zaijian-culture'
-    },
-    {
-      id:'demo-zh-zaijian-challenge',type:'challenge',stage:'最终挑战',skill:'表达迁移',title:'在新句子里使用再见',
-      target:{expression:'再见',skill:'表达迁移',evidenceLineIds:['demo-zh-platform-2','demo-zh-next-3'],prerequisites:['完成本轮五个节点']},
-      prompt:'第一次看到这句话：下个月再见。这里的「再见」最自然提示了什么？',
-      options:['先告别，并约定下个月再见面','两人下个月第一次认识','这次见面永远不可能结束'],correctIndex:0,
-      explanation:'「下个月」给出未来时间，「再见」既有告别功能，也把下一次见面作为约定。',
-      remedial:'先读「下个月」，得到未来时间；再想「再见」中的“再”与“见”如何组成下一次见面。',
-      evidenceLineIds:['demo-zh-platform-2','demo-zh-next-3'],prerequisiteNodeId:'demo-zh-zaijian-rest'
-    }
-  ]
-};
-const journeys=[journey,japaneseJourney,chineseJourney];
-module.exports={songs,lines,lesson,journey,japaneseJourney,chineseJourney,journeys};
+const journeys=[journey,japaneseJourney];
+module.exports={songs,lines,lesson,journey,japaneseJourney,journeys};

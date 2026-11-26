@@ -11,16 +11,18 @@ const {findQqLyrics}=require('../backend/media/qq-lyrics');
 const model=require('../backend/agent/model');
 const {songs,journeys}=require('../content/fixtures/demo');
 
-test('language registry accepts Korean, Japanese and Chinese and rejects unknown codes',()=>{
-  assert.deepEqual(publicLanguages().map(item=>item.code),['ko','ja','zh']);
+test('language registry accepts Korean and Japanese and rejects unknown codes',()=>{
+  assert.deepEqual(publicLanguages().map(item=>item.code),['ko','ja']);
   assert.equal(languageInfo('ja').nativeLabel,'日本語');
-  assert.equal(normalizeLanguage('ZH'),'zh');
+  assert.equal(normalizeLanguage('JA'),'ja');
+  for(const code of ['zh','ZH'])assert.throws(()=>normalizeLanguage(code),error=>error.code==='INVALID_INPUT');
+  assert.throws(()=>validateSong({...songs[0],language:'zh'}),error=>error.code==='INVALID_INPUT');
   assert.throws(()=>normalizeLanguage('en'),error=>error.code==='INVALID_INPUT');
   for(const song of songs)assert.equal(validateSong(song).languageLabel,languageInfo(song.language).label);
 });
 
-test('all three authored courses start playable ASCII dungeons in their selected language',()=>{
-  assert.deepEqual(journeys.map(course=>course.language),['ko','ja','zh']);
+test('both authored courses start playable ASCII dungeons in their selected language',()=>{
+  assert.deepEqual(journeys.map(course=>course.language),['ko','ja']);
   for(const course of journeys){
     assert.equal(validateCourse(course),course);
     const created=session.begin(course.songIds[0]);
@@ -39,19 +41,19 @@ test('a course cannot mix its declared language with songs in another language',
   assert.throws(()=>validateCourse(broken),error=>error.code==='COURSE_INVALID');
 });
 
-test('lyric adapters preserve an explicitly selected Japanese or Chinese language',async()=>{
+test('lyric adapters preserve an explicitly selected Japanese language',async()=>{
   const fake=async()=>({ok:true,json:async()=>[{
     id:7,trackName:'未来',artistName:'歌手',duration:120,syncedLyrics:'[00:01.00]また会おう'
   }]});
   const japanese=await findLyrics('未来','歌手',120000,fake,'ja');
   assert.equal(japanese.song.language,'ja');
   const netease=await findNeteaseLyrics(
-    {title:'未来',artist:'歌手',durationMs:120000,language:'zh'},
+    {title:'未来',artist:'歌手',durationMs:120000,language:'ja'},
     async url=>({ok:true,json:async()=>url.pathname.includes('/search/')
       ?{code:200,result:{songs:[{id:8,name:'未来',artists:[{name:'歌手'}],duration:120000}]}}
-      :{code:200,lrc:{lyric:'[00:01.00]下次再见'}}})
+      :{code:200,lrc:{lyric:'[00:01.00]また会おう'}}})
   );
-  assert.equal(netease.song.language,'zh');
+  assert.equal(netease.song.language,'ja');
   const qqSong={id:'9',songmid:'003Do8be0UUbfy',title:'未来',artist:'歌手',album:'',durationMs:120000};
   const qq=await findQqLyrics(
     {title:'未来',artist:'歌手',durationMs:120000,language:'ja',providerId:'9'},
@@ -63,13 +65,13 @@ test('lyric adapters preserve an explicitly selected Japanese or Chinese languag
   );
   assert.equal(qq.song.language,'ja');
   const fallback=await findQqLyrics(
-    {title:'未来',artist:'歌手',durationMs:120000,language:'zh'},
+    {title:'未来',artist:'歌手',durationMs:120000,language:'ja'},
     {
       libraryImpl:async()=>{throw Error('no local library')},
       fallback:async(_title,_artist,_duration,_fetch,language)=>({status:'no_matched_version',language,lines:[]})
     }
   );
-  assert.equal(fallback.language,'zh');
+  assert.equal(fallback.language,'ja');
   assert.throws(()=>normalizeLanguage('ko-kr'),error=>error.code==='INVALID_INPUT');
 });
 

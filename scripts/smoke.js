@@ -40,8 +40,8 @@ async function main(){
   try{
     assert.equal((await call('/api/health')).data.ok,true);
     const catalog=(await call('/api/songs')).data;
-    assert.deepEqual(catalog.languages.map(item=>item.code),['ko','ja','zh']);
-    assert.equal(catalog.songs.length,6);
+    assert.deepEqual(catalog.languages.map(item=>item.code),['ko','ja']);
+    assert.equal(catalog.songs.length,4);
     assert.ok(catalog.songs.every(song=>song.languageLabel));
     for(const song of catalog.songs){
       const created=await call('/api/sessions','POST',{songId:song.id});
@@ -52,6 +52,11 @@ async function main(){
       assert.equal(first.status,200);
       assert.equal(first.data.teaching.phase,'brief');
     }
+
+    const removedLanguage=await call('/api/lyrics/search','POST',{title:'测试',artist:'测试',durationMs:30000,language:'zh'});
+    assert.equal(removedLanguage.status,400);assert.equal(removedLanguage.data.error.code,'INVALID_INPUT');
+    const removedCourse=await call('/api/sessions','POST',{songId:'demo-zh-platform'});
+    assert.equal(removedCourse.status,404);
 
     const vectors={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
     function playerPosition(node){for(let y=0;y<node.room.cells.length;y++)for(let x=0;x<node.room.cells[y].length;x++)if(node.room.cells[y][x]==='player')return {x,y};throw Error('player missing')}
@@ -159,8 +164,6 @@ async function main(){
     assert.equal(restarted.data.node.room.tiles.length,9);
     const japanese=await complete(catalog.songs.find(song=>song.language==='ja'),{branch:1});
     assert.ok(japanese.history.length>=japanese.progress.total);
-    const chinese=await complete(catalog.songs.find(song=>song.language==='zh'),{branch:0});
-    assert.ok(chinese.history.length>=chinese.progress.total);
     const startedPlan=await call('/api/agent/plan-jobs','POST',{song:dynamicSong,lines:dynamicLines,language:'ja'});
     assert.equal(startedPlan.status,202);assert.equal(startedPlan.data.status,'queued');
     let planned=startedPlan.data;
@@ -215,7 +218,7 @@ async function main(){
     assert.equal(dynamicFinished.status,'completed');assert.ok(dynamicFinished.game.cards.length>=1);
     const invalidLanguage=await call('/api/lyrics/search','POST',{title:'Song',artist:'Artist',durationMs:120000,language:'en'});
     assert.equal(invalidLanguage.status,400);assert.equal(invalidLanguage.data.error.code,'INVALID_INPUT');
-    console.log('HTTP smoke passed: ko/ja/zh + AI dungeon → notes/NPCs/cards → scattered character chain');
+    console.log('HTTP smoke passed: ko/ja + AI dungeon → notes/NPCs/cards → scattered character chain');
   }finally{planner.plan=originalPlan;await new Promise(resolve=>server.close(resolve));}
 }
 main().catch(error=>{console.error(error);process.exitCode=1});

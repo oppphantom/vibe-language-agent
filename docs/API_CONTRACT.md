@@ -1,10 +1,10 @@
 # API 与数据契约（版本 2）
 
-`shared/contract.js` 是歌曲、歌词行及答案提交的运行时校验来源，`shared/languages.js` 是 `ko`、`ja`、`zh` 语言代码的唯一注册表。本文说明其他对象的公开形状。时间一律用**整数毫秒**。未知起止时间用 `null`；已知开始、未知结束的最后一行可以保留，但不能启用「播完这一句自动暂停」。
+`shared/contract.js` 是歌曲、歌词行及答案提交的运行时校验来源，`shared/languages.js` 是 `ko`、`ja` 语言代码的唯一注册表。本文说明其他对象的公开形状。时间一律用**整数毫秒**。未知起止时间用 `null`；已知开始、未知结束的最后一行可以保留，但不能启用「播完这一句自动暂停」。
 
 | 对象 | 必需字段与含义 |
 | --- | --- |
-| `Song` | 稳定 `id`、`title`、`artist`、`language`（`ko` / `ja` / `zh`）、`languageLabel`、`version`、`durationMs`、`source`；离线样例还提供 `audio.available` 与原因。 |
+| `Song` | 稳定 `id`、`title`、`artist`、`language`（`ko` / `ja`）、`languageLabel`、`version`、`durationMs`、`source`；离线样例还提供 `audio.available` 与原因。 |
 | `LyricLine` | `id`、`songId`、`text`、`startMs`、`endMs`、`source`、`reviewStatus`（`original`、`verified`、`unverified`）。 |
 | `PlaybackCapabilities` | `seek`、`lineLoop`、`speed`、`wordSeek` 布尔值及不支持时的 `reason`。 |
 | `LearningTarget` | `expression`、`skill`、`evidenceLineIds`、`prerequisites`。 |
@@ -18,7 +18,7 @@
 
 ## 离线教学回合
 
-`GET /api/songs` 返回 `songs`、`lines`、`languages` 和来源说明。`languages` 当前为韩语 `ko`、日语 `ja`、中文 `zh`。网页操作界面保持中文，语言字段表示学习目标语言。
+`GET /api/songs` 返回 `songs`、`lines`、`languages` 和来源说明。`languages` 当前为韩语 `ko`、日语 `ja`。网页操作界面保持中文，语言字段表示学习目标语言。`zh` 已移除，传入时返回 `400 INVALID_INPUT`；旧浏览器保存的中文选择会回退到韩语。
 
 ```http
 POST /api/sessions
@@ -27,7 +27,7 @@ Content-Type: application/json
 {"songId":"demo-morning"}
 ```
 
-韩语、日语和中文各有一套原创知识内容。真实歌曲由专用地下城 Agent 决定 2–5 个普通关卡、每关可验证的教学包和每张地图的 note/npc/card 组合，系统再固定追加“串词成句”终关，因此公开地图通常包含 3–6 个节点。
+韩语和日语各有一套原创知识内容。真实歌曲由专用地下城 Agent 决定 2–5 个普通关卡、每关可验证的教学包和每张地图的 note/npc/card 组合，系统再固定追加“串词成句”终关，因此公开地图通常包含 3–6 个节点。
 
 创建后调用 `GET /api/sessions/{id}/node` 获取当前 19×9 ASCII 房间、角色位置、任务、符号图例和公开地图。
 
@@ -85,7 +85,7 @@ Content-Type: application/json
 
 页面提交的密钥只在本机服务进程内存中使用，不写入 `localStorage`、磁盘、日志或仓库，也不会通过读取接口返回。关闭或重启 Node.js 服务会清除会话配置。`.env` 是可选的高级配置方式，仍须保持在 Git 忽略范围内。
 
-- `POST /api/lyrics/search` 接收 `{"title":"...","artist":"...","durationMs":180000,"language":"ko|ja|zh"}`；`language` 省略时为韩语，可由用户显式选择日语或中文，服务不会声称自动识别语言。可带 `album`、`providerId` 缩小到对应版本，只返回标题、歌手、时长及已提供专辑匹配的同步歌词。`provider:"netease"` 时优先读取网易云对应歌曲 ID 的同步歌词；`provider:"qqmusic"` 时使用导入歌单携带的 song MID，或根据 macOS 本机 QQ 曲目 ID 查找歌曲 MID，再从 QQ 歌词接口读取逐行时间戳，失败才尝试 LRCLIB。`providerId` 指定用户在列表选中的版本。其他来源从 LRCLIB 匹配。结果为 `unverified` 或 `no_matched_version`，找不到匹配版本时不提供冒充的歌词。
+- `POST /api/lyrics/search` 接收 `{"title":"...","artist":"...","durationMs":180000,"language":"ko|ja"}`；`language` 省略时为韩语，可由用户显式选择日语，服务不会声称自动识别语言。可带 `album`、`providerId` 缩小到对应版本，只返回标题、歌手、时长及已提供专辑匹配的同步歌词。`provider:"netease"` 时优先读取网易云对应歌曲 ID 的同步歌词；`provider:"qqmusic"` 时使用导入歌单携带的 song MID，或根据 macOS 本机 QQ 曲目 ID 查找歌曲 MID，再从 QQ 歌词接口读取逐行时间戳，失败才尝试 LRCLIB。`providerId` 指定用户在列表选中的版本。其他来源从 LRCLIB 匹配。结果为 `unverified` 或 `no_matched_version`，找不到匹配版本时不提供冒充的歌词。
 - `POST /api/agent/explain` 接收 `{"expression":"また","language":"ja","lines":["..."]}`，仅在本机服务配置模型后可用；`language` 省略时为韩语。返回结果标记为「AI 生成，未人工核对」，并回显规范化后的 `language` 和 `languageLabel`。
 - `POST /api/agent/record-lesson` 接收 `{"line":"...","previous":"...","next":"...","language":"ko"}`，为唱片解锁的单句学习生成读音、重点义、整句翻译、前后句语境和有证据边界的文化说明；五个字段不齐全时拒绝响应。已解锁笔记仅保存在用户浏览器本地。
 - `POST /api/agent/plan` 接收同步歌词检索结果中的 `song`、`lines` 和 `language`。服务端要求至少四行歌词，先校验知识节点，再由专用地下城 Agent 根据歌曲特征决定 2–5 个普通关卡、教学包、布局和 note/npc/card 实体组合，并固定追加串词成句关。每个教学包必须包含证据行、学习目标、选材理由、读音词块、整句翻译、歌曲语境、文化说明和带解释的三选一引导检查。只有这些字段以及歌词引用、答案、知识卡和字符顺序全部通过校验后才返回 `courseId`；公开响应不包含答案键或隐藏题库。

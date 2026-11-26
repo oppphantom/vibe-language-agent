@@ -8,12 +8,12 @@ const html=fs.readFileSync(path.join(__dirname,'../frontend/index.html'),'utf8')
 const app=fs.readFileSync(path.join(__dirname,'../frontend/app.js'),'utf8');
 const css=fs.readFileSync(path.join(__dirname,'../frontend/style.css'),'utf8');
 
-test('landing exposes a zero-setup sample path before library setup',()=>{
-  for(const id of ['startSample','goLibrary','sampleCourse','sampleSongs','sampleStatus','stepRail','stepStatus','modelStatusStrip','modelStatusHint','studyTabHint','studyProvenance','openModelFromStudy','goSampleFromStudy','planPhases']){
+test('landing directs learners to their own music',()=>{
+  for(const id of ['goLibrary','stepRail','stepStatus','modelStatusStrip','modelStatusHint','studyTabHint','studyProvenance','openModelFromStudy','planPhases']){
     assert.match(html,new RegExp(`id="${id}"`));
   }
-  assert.match(html,/原创教学样例 · 非实时 Agent 生成/);
-  assert.match(html,/先体验样例课程/);
+  assert.doesNotMatch(html,/id="(?:sampleCourse|sampleSongs|sampleStatus|startSample|goSampleFromStudy)"/);
+  assert.doesNotMatch(html,/先体验样例课程/);
   assert.match(html,/role="tablist"/);
   assert.match(html,/aria-controls="music"/);
   assert.match(html,/aria-controls="study"/);
@@ -31,18 +31,11 @@ test('duplicate instructions keep a single source of truth',()=>{
     assert.doesNotMatch(html,new RegExp(phrase));
   }
   assert.ok((html.match(/生成学习地图/g)||[]).length<=2);
-  assert.equal((html.match(/原创教学样例 · 非实时 Agent 生成/g)||[]).length,1);
-});
-
-test('sample cards start the existing songId session contract',()=>{
-  assert.match(app,/data\.songs/);
-  assert.match(app,/renderSampleSongs/);
-  assert.match(app,/startSession\(\{songId\}\)/);
-  assert.match(app,/offline_demo/);
+  assert.equal((html.match(/原创教学样例 · 非实时 Agent 生成/g)||[]).length,0);
 });
 
 test('demo IA styles and secondary actions exist',()=>{
-  for(const selector of ['button.secondary','.capability-grid','.step-rail','.model-strip','.learning-cta','.sample-grid','.agent-box.is-secondary']){
+  for(const selector of ['button.secondary','.capability-grid','.step-rail','.model-strip','.learning-cta','.agent-box.is-secondary']){
     assert.ok(css.includes(selector),`missing ${selector}`);
   }
   assert.match(css,/\.app-bar\{[^}]*position:sticky/);

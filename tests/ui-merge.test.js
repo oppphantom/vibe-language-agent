@@ -28,7 +28,7 @@ test('deferred tab switching preserves accessibility, last selection, and visibl
     requestAnimationFrame(fn){frames.set(++serial,fn);return serial},cancelAnimationFrame:id=>frames.delete(id),
     stopNotePlaybackRetry(){},closeGameModal(){}};
   const source=read('app.js');
-  vm.runInNewContext(source.slice(source.indexOf('let modeApplyFrame='),source.indexOf('const noSampleMessage=')),context);
+  vm.runInNewContext(source.slice(source.indexOf('let modeApplyFrame='),source.indexOf("$('musicTab').onclick=")),context);
   const flush=()=>{for(const [id,fn] of [...frames]){frames.delete(id);fn()}};
   context.mode('study');
   assert.equal($('studyTab').attrs['aria-selected'],'true');
@@ -38,9 +38,9 @@ test('deferred tab switching preserves accessibility, last selection, and visibl
   assert.equal($('study').hidden,true);
   assert.equal(focused,'settingsHeading');
   assert.equal($('settingsTab').attrs['aria-pressed'],'true');
-  context.mode('music',()=>{assert.equal($('music').hidden,false);$('startSample').focus()});
+  context.mode('music',()=>{assert.equal($('music').hidden,false);$('goLibrary').focus()});
   flush();flush();flush();
-  assert.equal(focused,'startSample');
+  assert.equal(focused,'goLibrary');
   assert.equal($('learningLanguage').disabled,false);
   assert.equal(context.document.documentElement.classList.contains('is-tab-switching'),false);
 });
